@@ -50,6 +50,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("X-Auth-Token", getConfig().getString("bot-api-token", ""));
                 conn.setConnectTimeout(3000); // 新增
                 conn.setReadTimeout(3000);    // 新增
                 conn.setDoOutput(true);
@@ -76,6 +77,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("X-Auth-Token", getConfig().getString("bot-api-token", ""));
                 conn.setConnectTimeout(3000);
                 conn.setReadTimeout(3000);
                 conn.setDoOutput(true);
@@ -108,6 +110,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("X-Auth-Token", getConfig().getString("bot-api-token", ""));
                 conn.setConnectTimeout(3000);
                 conn.setReadTimeout(3000);
                 conn.setDoOutput(true);
@@ -135,6 +138,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("X-Auth-Token", getConfig().getString("bot-api-token", ""));
                 conn.setConnectTimeout(3000);
                 conn.setReadTimeout(3000);
                 conn.setDoOutput(true);
