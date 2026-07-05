@@ -3,3 +3,8 @@ version: 1.0
 main: com.asriel.discordbridge.DiscordBridgePlugin
 api-version: 1.20
 author: Asriel
+
+commands:
+  getmap:
+    description: 領取最新的地圖
+    usage: /getmap

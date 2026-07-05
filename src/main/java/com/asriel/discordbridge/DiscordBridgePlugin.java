@@ -19,10 +19,23 @@ import java.util.stream.Collectors;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.Material;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.map.MapCanvas;
+import org.bukkit.map.MapRenderer;
+import org.bukkit.map.MapView;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private HttpServer server;
     private String discordBotUrl;
+    private Integer latestMapId = null;
 
     @Override
     public void onEnable() {
@@ -38,6 +51,39 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         if (server != null) {
             server.stop(0);
         }
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!command.getName().equalsIgnoreCase("getmap")) return false;
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("這個指令只能由玩家執行。");
+            return true;
+        }
+
+        if (latestMapId == null) {
+            sender.sendMessage("§c目前還沒有可領取的地圖。");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        MapView map = Bukkit.getMap(latestMapId);
+
+        if (map == null) {
+            sender.sendMessage("§c地圖不存在，請聯絡管理員。");
+            return true;
+        }
+
+        ItemStack mapItem = new ItemStack(Material.FILLED_MAP);
+        org.bukkit.inventory.meta.MapMeta meta =
+            (org.bukkit.inventory.meta.MapMeta) mapItem.getItemMeta();
+        meta.setMapView(map);
+        mapItem.setItemMeta(meta);
+
+        player.getInventory().addItem(mapItem);
+        player.sendMessage("§a地圖已放入你的背包！");
+        return true;
     }
 
     @EventHandler
@@ -209,6 +255,55 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                 Bukkit.getScheduler().runTask(this, () -> {
                     Bukkit.broadcastMessage("§9[Discord] §f" + user + ": " + msg);
                 });
+                sendResponse(exchange, "{\"ok\":true}");
+            });
+
+            server.createContext("/map-data", exchange -> {
+                if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                    exchange.sendResponseHeaders(405, -1);
+                    exchange.close();
+                    return;
+                }
+
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+
+                Bukkit.getScheduler().runTask(this, () -> {
+                    try {
+                        JSONParser parser = new JSONParser();
+                        JSONObject json = (JSONObject) parser.parse(body);
+                        JSONArray pixelArray = (JSONArray) json.get("pixels");
+
+                        final byte[] pixels = new byte[16384]; // 128x128
+                        for (int i = 0; i < pixelArray.size(); i++) {
+                            pixels[i] = ((Long) pixelArray.get(i)).byteValue();
+                        }
+
+                        MapView map = Bukkit.createMap(Bukkit.getWorlds().get(0));
+                        map.getRenderers().forEach(map::removeRenderer);
+                        map.addRenderer(new MapRenderer() {
+                            private boolean rendered = false;
+
+                            @Override
+                            public void render(MapView mapView, MapCanvas canvas, Player player) {
+                                if (rendered) return;
+                                for (int y = 0; y < 128; y++) {
+                                    for (int x = 0; x < 128; x++) {
+                                        canvas.setPixel(x, y, pixels[y * 128 + x]);
+                                    }
+                                }
+                                rendered = true;
+                            }
+                        });
+
+                        latestMapId = map.getId();
+                        getLogger().info("地圖建立成功，ID: " + latestMapId);
+
+                    } catch (Exception e) {
+                        getLogger().warning("建立地圖失敗: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
+
                 sendResponse(exchange, "{\"ok\":true}");
             });
             server.start();
