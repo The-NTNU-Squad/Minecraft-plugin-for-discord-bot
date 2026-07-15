@@ -6,5 +6,5 @@ author: Asriel
 
 commands:
   getmap:
-    description: 領取最新的地圖
-    usage: /getmap
+    description: 領取指定地圖
+    usage: /getmap [map0|map1|map2...]

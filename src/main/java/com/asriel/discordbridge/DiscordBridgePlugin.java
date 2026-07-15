@@ -35,7 +35,7 @@ import java.util.List;
 public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private HttpServer server;
     private String discordBotUrl;
-    private Integer latestMapId = null;
+    private List<Integer> mapIds = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -62,13 +62,42 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
             return true;
         }
 
-        if (latestMapId == null) {
+        if (mapIds.isEmpty()) {
             sender.sendMessage("§c目前還沒有可領取的地圖。");
             return true;
         }
 
+        // 沒有帶參數就列出所有地圖
+        if (args.length == 0) {
+            sender.sendMessage("§e可用的地圖：");
+            for (int i = 0; i < mapIds.size(); i++) {
+                sender.sendMessage("§f  /getmap map" + i);
+            }
+            return true;
+        }
+
+        // 解析 map0, map1, map2...
+        String arg = args[0].toLowerCase();
+        if (!arg.startsWith("map")) {
+            sender.sendMessage("§c格式錯誤，請使用 /getmap map0、/getmap map1 等。");
+            return true;
+        }
+
+        int index;
+        try {
+            index = Integer.parseInt(arg.substring(3));
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§c格式錯誤，請使用 /getmap map0、/getmap map1 等。");
+            return true;
+        }
+
+        if (index < 0 || index >= mapIds.size()) {
+            sender.sendMessage("§c地圖不存在，目前共有 " + mapIds.size() + " 張（map0 到 map" + (mapIds.size() - 1) + "）。");
+            return true;
+        }
+
         Player player = (Player) sender;
-        MapView map = Bukkit.getMap(latestMapId);
+        MapView map = Bukkit.getMap(mapIds.get(index));
 
         if (map == null) {
             sender.sendMessage("§c地圖不存在，請聯絡管理員。");
@@ -82,7 +111,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         mapItem.setItemMeta(meta);
 
         player.getInventory().addItem(mapItem);
-        player.sendMessage("§a地圖已放入你的背包！");
+        player.sendMessage("§a已給予 map" + index + "！");
         return true;
     }
 
@@ -280,7 +309,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
 
                         MapView map = Bukkit.createMap(Bukkit.getWorlds().get(0));
                         map.getRenderers().forEach(map::removeRenderer);
-                        map.addRenderer(new MapRenderer() {
+                        map.addRenderer(new MapRenderer(false) {
                             private boolean rendered = false;
 
                             @Override
@@ -295,8 +324,8 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                             }
                         });
 
-                        latestMapId = map.getId();
-                        getLogger().info("地圖建立成功，ID: " + latestMapId);
+                        mapIds.add(map.getId());
+                        getLogger().info("地圖建立成功，ID: " + map.getId() + "，目前共 " + mapIds.size() + " 張");
 
                     } catch (Exception e) {
                         getLogger().warning("建立地圖失敗: " + e.getMessage());
