@@ -8,3 +8,6 @@ commands:
   getmap:
     description: 領取指定地圖
     usage: /getmap [map0|map1|map2...]
+  bind:
+    description: 綁定網頁帳號
+    usage: /bind <token>

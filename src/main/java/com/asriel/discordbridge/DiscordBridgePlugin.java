@@ -35,6 +35,7 @@ import java.util.List;
 public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private HttpServer server;
     private String discordBotUrl;
+    private String backendUrl;
     private List<Integer> mapIds = new ArrayList<>();
 
     @Override
@@ -42,6 +43,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         getLogger().info("DiscordBridge Enabled");
         saveDefaultConfig();
         discordBotUrl = getConfig().getString("discord-bot-url", "http://localhost:3000");
+        backendUrl = getConfig().getString("backend-url", "http://localhost:5000");
         Bukkit.getPluginManager().registerEvents(this, this);
         startHttpServer();
     }
@@ -112,6 +114,56 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
 
         player.getInventory().addItem(mapItem);
         player.sendMessage("§a已給予 map" + index + "！");
+        return true;
+    }
+
+    if (command.getName().equalsIgnoreCase("bind")) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("這個指令只能由玩家執行。");
+            return true;
+        }
+
+        if (args.length == 0) {
+            sender.sendMessage("§c請輸入 token：/bind <token>");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        String token = args[0];
+
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                URL url = new URL(backendUrl + "/api/bind/mc");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                conn.setDoOutput(true);
+
+                String json = "{\"token\":\"" + token + "\",\"mc_username\":\"" + player.getName() + "\"}";
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(json.getBytes(StandardCharsets.UTF_8));
+                }
+
+                int responseCode = conn.getResponseCode();
+                if (responseCode == 200) {
+                    Bukkit.getScheduler().runTask(this, () -> {
+                        player.sendMessage("§a綁定成功！");
+                    });
+                } else {
+                    Bukkit.getScheduler().runTask(this, () -> {
+                        player.sendMessage("§ctoken 無效，請確認後再試。");
+                    });
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                getLogger().warning("綁定失敗: " + e.getMessage());
+                Bukkit.getScheduler().runTask(this, () -> {
+                    player.sendMessage("§c無法連線到伺服器，請稍後再試。");
+                });
+            }
+        });
         return true;
     }
 
