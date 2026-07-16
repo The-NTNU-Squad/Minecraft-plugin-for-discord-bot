@@ -164,6 +164,53 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
             return true;
         }
 
+        if (command.getName().equalsIgnoreCase("check")) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("這個指令只能由玩家執行。");
+                return true;
+            }
+
+            Player player = (Player) sender;
+            String mcUsername = player.getName();
+
+            Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+                try {
+                    URL url = new URL(backendUrl + "/api/user/me/mc?mc_username=" + mcUsername);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(3000);
+                    conn.setReadTimeout(3000);
+
+                    int responseCode = conn.getResponseCode();
+                    if (responseCode == 200) {
+                        String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                        String username = body.replaceAll(".*\"username\":\"([^\"]+)\".*", "$1");
+                        String mcName = body.replaceAll(".*\"mc_username\":\"([^\"]+)\".*", "$1");
+                        String discordId = body.contains("\"discord_id\":null") ? "未綁定" 
+                            : body.replaceAll(".*\"discord_id\":\"([^\"]+)\".*", "$1");
+
+                        Bukkit.getScheduler().runTask(this, () -> {
+                            player.sendMessage("§b📋 帳號綁定資訊");
+                            player.sendMessage("§f🌐 網頁帳號：§e" + username);
+                            player.sendMessage("§f⛏️ MC 帳號：§e" + mcName);
+                            player.sendMessage("§f💬 Discord：§e" + (discordId.equals("未綁定") ? "未綁定" : "<@" + discordId + ">"));
+                        });
+                    } else {
+                        Bukkit.getScheduler().runTask(this, () -> {
+                            player.sendMessage("§c你還沒有綁定帳號，請先用 /bind <token> 綁定。");
+                        });
+                    }
+                    conn.disconnect();
+                } catch (Exception e) {
+                    getLogger().warning("check 指令失敗: " + e.getMessage());
+                    Bukkit.getScheduler().runTask(this, () -> {
+                        player.sendMessage("§c無法連線到伺服器，請稍後再試。");
+                    });
+                }
+            });
+            return true;
+        }
+
         return false;
     }
 

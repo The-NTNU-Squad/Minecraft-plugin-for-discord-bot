@@ -11,3 +11,6 @@ commands:
   bind:
     description: 綁定網頁帳號
     usage: /bind <token>
+  check:
+    description: 查看綁定帳號資訊
+    usage: /check
