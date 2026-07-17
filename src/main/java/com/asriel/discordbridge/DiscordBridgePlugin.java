@@ -184,16 +184,17 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                     int responseCode = conn.getResponseCode();
                     if (responseCode == 200) {
                         String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                        String username = body.replaceAll(".*\"username\":\"([^\"]+)\".*", "$1");
-                        String mcName = body.replaceAll(".*\"mc_username\":\"([^\"]+)\".*", "$1");
-                        String discordId = body.contains("\"discord_id\":null") ? "未綁定" 
-                            : body.replaceAll(".*\"discord_id\":\"([^\"]+)\".*", "$1");
+                        JSONObject json = (JSONObject) new JSONParser().parse(body);
+
+                        String username = (String) json.get("username");
+                        String mcName = json.get("mc_username") != null ? (String) json.get("mc_username") : "未綁定";
+                        String discordId = json.get("discord_id") != null ? (String) json.get("discord_id") : "未綁定";
 
                         Bukkit.getScheduler().runTask(this, () -> {
-                            player.sendMessage("§b📋 帳號綁定資訊");
-                            player.sendMessage("§f🌐 網頁帳號：§e" + username);
-                            player.sendMessage("§f⛏️ MC 帳號：§e" + mcName);
-                            player.sendMessage("§f💬 Discord：§e" + (discordId.equals("未綁定") ? "未綁定" : "<@" + discordId + ">"));
+                            player.sendMessage("§b--- 帳號綁定資訊 ---");
+                            player.sendMessage("§7網頁帳號：§f" + username);
+                            player.sendMessage("§7MC 帳號：§f" + mcName);
+                            player.sendMessage("§7Discord ID：§f" + discordId);
                         });
                     } else {
                         Bukkit.getScheduler().runTask(this, () -> {
