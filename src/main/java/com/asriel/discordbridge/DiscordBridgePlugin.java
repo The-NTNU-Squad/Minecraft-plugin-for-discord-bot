@@ -196,6 +196,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                                 URL dcUrl = new URL(discordBotUrl + "/discord-user/" + discordId);
                                 HttpURLConnection dcConn = (HttpURLConnection) dcUrl.openConnection();
                                 dcConn.setRequestMethod("GET");
+                                dcConn.setRequestProperty("X-Auth-Token", getConfig().getString("bot-api-token", ""));
                                 dcConn.setConnectTimeout(3000);
                                 dcConn.setReadTimeout(3000);
                                 if (dcConn.getResponseCode() == 200) {
