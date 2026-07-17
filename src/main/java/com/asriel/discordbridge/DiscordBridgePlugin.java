@@ -188,13 +188,33 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
 
                         String username = (String) json.get("username");
                         String mcName = json.get("mc_username") != null ? (String) json.get("mc_username") : "未綁定";
-                        String discordId = json.get("discord_id") != null ? (String) json.get("discord_id") : "未綁定";
+                        String discordId = json.get("discord_id") != null ? (String) json.get("discord_id") : null;
+                        String discordName = "未綁定";
 
+                        if (discordId != null) {
+                            try {
+                                URL dcUrl = new URL(discordBotUrl + "/discord-user/" + discordId);
+                                HttpURLConnection dcConn = (HttpURLConnection) dcUrl.openConnection();
+                                dcConn.setRequestMethod("GET");
+                                dcConn.setConnectTimeout(3000);
+                                dcConn.setReadTimeout(3000);
+                                if (dcConn.getResponseCode() == 200) {
+                                    String dcBody = new String(dcConn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                                    JSONObject dcJson = (JSONObject) new JSONParser().parse(dcBody);
+                                    discordName = (String) dcJson.get("username");
+                                }
+                                dcConn.disconnect();
+                            } catch (Exception e) {
+                                discordName = discordId;
+                            }
+                        }
+
+                        final String finalDiscordName = discordName;
                         Bukkit.getScheduler().runTask(this, () -> {
                             player.sendMessage("§b--- 帳號綁定資訊 ---");
                             player.sendMessage("§7網頁帳號：§f" + username);
                             player.sendMessage("§7MC 帳號：§f" + mcName);
-                            player.sendMessage("§7Discord ID：§f" + discordId);
+                            player.sendMessage("§7Discord：§f" + finalDiscordName);
                         });
                     } else {
                         Bukkit.getScheduler().runTask(this, () -> {
