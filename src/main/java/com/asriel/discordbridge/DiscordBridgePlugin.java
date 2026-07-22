@@ -43,6 +43,8 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private String backendUrl;
     private List<Integer> mapIds = new ArrayList<>();
     private DungeonManager dungeonManager;
+    private DungeonMenu dungeonMenu;
+    private CompassManager compassManager;
 
     @Override
     public void onEnable() {
@@ -53,10 +55,17 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         Bukkit.getPluginManager().registerEvents(this, this);
         startHttpServer();
         dungeonManager = new DungeonManager(this);
+        dungeonMenu = new DungeonMenu(this, dungeonManager);
+        compassManager = new CompassManager(this, dungeonMenu);
+        dungeonManager.setDungeonMenu(dungeonMenu); // 串接
     }
 
     public DungeonManager getDungeonManager() {
         return dungeonManager;
+    }
+
+    public CompassManager getCompassManager() {
+        return compassManager;
     }
 
     @Override
@@ -291,6 +300,15 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
             return true;
         }
         
+        if (command.getName().equalsIgnoreCase("getcompass")) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage("這個指令只能由玩家執行。");
+                return true;
+            }
+            compassManager.giveCompass((Player) sender);
+            return true;
+        }
+
         return false;
     }
 

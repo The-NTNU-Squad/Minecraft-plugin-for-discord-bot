@@ -17,3 +17,6 @@ commands:
   claim:
     description: 領取簽到獎勵
     usage: /claim
+  getcompass:
+    description: 獲取副本指南針
+    usage: /getcompass

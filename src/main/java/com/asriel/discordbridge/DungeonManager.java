@@ -15,6 +15,11 @@ public class DungeonManager implements Listener {
 
     private final JavaPlugin plugin;
     private final Map<UUID, DungeonSession> activeSessions = new HashMap<>();
+    private DungeonMenu dungeonMenu;
+
+    public void setDungeonMenu(DungeonMenu dungeonMenu) {
+        this.dungeonMenu = dungeonMenu;
+    }
 
     // ==============================
     // 副本等級設定（數值調整區）
@@ -207,7 +212,9 @@ public class DungeonManager implements Listener {
         // ==============================
         // 通關獎勵（之後在這裡新增）
         // ==============================
-
+        if (dungeonMenu != null) {
+                dungeonMenu.unlockNextLevel(player, session.level);
+        }
         // ==============================
 
         // 傳送回主世界出生點
