@@ -42,6 +42,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private String discordBotUrl;
     private String backendUrl;
     private List<Integer> mapIds = new ArrayList<>();
+    private DungeonManager dungeonManager;
 
     @Override
     public void onEnable() {
@@ -51,6 +52,11 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         backendUrl = getConfig().getString("backend-url", "http://localhost:5000");
         Bukkit.getPluginManager().registerEvents(this, this);
         startHttpServer();
+        dungeonManager = new DungeonManager(this);
+    }
+
+    public DungeonManager getDungeonManager() {
+        return dungeonManager;
     }
 
     @Override
