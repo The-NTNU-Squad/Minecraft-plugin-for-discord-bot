@@ -80,7 +80,7 @@ public class DungeonManager implements Listener {
         Random random = new Random();
         int chunkX = (DUNGEON_BASE_X >> 4) + random.nextInt(10000);
         int chunkZ = random.nextInt(20000) - 10000;
-        int DUNGEON_VIEW_DISTANCE = 1; // 副本內視野距離（1 = 只載入當前 chunk）
+        int DUNGEON_VIEW_DISTANCE = 2; // 副本內視野距離（1 = 只載入當前 chunk）
         // ==============================
 
         player.setViewDistance(DUNGEON_VIEW_DISTANCE);
