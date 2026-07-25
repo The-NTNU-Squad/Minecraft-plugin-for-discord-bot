@@ -1,5 +1,4 @@
 package com.asriel.discordbridge;
-
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -73,6 +72,7 @@ public class DungeonManager implements Listener {
         }
 
         World world = Bukkit.getWorlds().get(0); // 使用主世界
+        Location originalLocation = player.getLocation(); // 記錄原本位置
 
         // ==============================
         // 副本 Chunk 範圍設定（可調整）
@@ -109,7 +109,7 @@ public class DungeonManager implements Listener {
             // 先建立 session 但怪物清單為空
             DungeonSession session = new DungeonSession(
                 player.getUniqueId(), level, new ArrayList<>(),
-                player.getLocation(), chunkX, chunkZ
+                originalLocation, chunkX, chunkZ
             );
             activeSessions.put(player.getUniqueId(), session);
 
@@ -228,7 +228,7 @@ public class DungeonManager implements Listener {
             // 先清除 barrier 再傳送玩家
             Bukkit.getScheduler().runTask(plugin, () -> {
                 clearBarriers(Bukkit.getWorlds().get(0), session);
-                player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+                player.teleport(session.origin);
             });
         }
     }
@@ -251,7 +251,7 @@ public class DungeonManager implements Listener {
         // 先清除 barrier 再傳送玩家
         Bukkit.getScheduler().runTask(plugin, () -> {
             clearBarriers(Bukkit.getWorlds().get(0), session);
-            player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+            player.teleport(session.origin);
         });
     }
 
