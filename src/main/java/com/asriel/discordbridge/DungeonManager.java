@@ -149,9 +149,9 @@ public class DungeonManager implements Listener {
     }
 
     private void recordAndPlace(World world, int x, int y, int z, DungeonSession session) {
-        Location loc = new Location(world, x, y, z);
-        session.originalBlocks.put(loc, world.getBlockAt(loc).getType());
-        world.getBlockAt(loc).setType(Material.BARRIER);
+        String key = x + "," + y + "," + z;
+        session.originalBlocks.put(key, world.getBlockAt(x, y, z).getType());
+        world.getBlockAt(x, y, z).setType(Material.BARRIER);
     }
 
     private List<UUID> spawnMobs(World world, DungeonConfig config, int level, int centerX, int playerY, int centerZ) {
@@ -254,8 +254,12 @@ public class DungeonManager implements Listener {
     }
 
     private void clearBarriers(World world, DungeonSession session) {
-        for (Map.Entry<Location, Material> entry : session.originalBlocks.entrySet()) {
-            world.getBlockAt(entry.getKey()).setType(entry.getValue());
+        for (Map.Entry<String, Material> entry : session.originalBlocks.entrySet()) {
+            String[] parts = entry.getKey().split(",");
+            int x = Integer.parseInt(parts[0]);
+            int y = Integer.parseInt(parts[1]);
+            int z = Integer.parseInt(parts[2]);
+            world.getBlockAt(x, y, z).setType(entry.getValue());
         }
     }
 
@@ -286,7 +290,7 @@ public class DungeonManager implements Listener {
         Location origin;
         int chunkX;
         int chunkZ;
-        Map<Location, Material> originalBlocks = new HashMap<>();
+        Map<String, Material> originalBlocks = new HashMap<>();
         
         DungeonSession(UUID playerUUID, int level, List<UUID> mobUUIDs, Location origin, int chunkX, int chunkZ) {
             this.playerUUID = playerUUID;
