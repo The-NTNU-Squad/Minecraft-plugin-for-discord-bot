@@ -150,7 +150,9 @@ public class DungeonManager implements Listener {
 
     private void recordAndPlace(World world, int x, int y, int z, DungeonSession session) {
         String key = x + "," + y + "," + z;
-        session.originalBlocks.put(key, world.getBlockAt(x, y, z).getType());
+        if (!session.originalBlocks.containsKey(key)) { // 只記錄第一次
+            session.originalBlocks.put(key, world.getBlockAt(x, y, z).getType());
+        }
         world.getBlockAt(x, y, z).setType(Material.BARRIER);
     }
 
