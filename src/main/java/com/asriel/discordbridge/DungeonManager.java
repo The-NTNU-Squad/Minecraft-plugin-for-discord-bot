@@ -254,6 +254,7 @@ public class DungeonManager implements Listener {
     }
 
     private void clearBarriers(World world, DungeonSession session) {
+        plugin.getLogger().info("開始清除 barrier，共 " + session.originalBlocks.size() + " 個方塊");
         for (Map.Entry<String, Material> entry : session.originalBlocks.entrySet()) {
             String[] parts = entry.getKey().split(",");
             int x = Integer.parseInt(parts[0]);
