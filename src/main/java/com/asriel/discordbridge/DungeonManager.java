@@ -251,17 +251,22 @@ public class DungeonManager implements Listener {
         }
         // ==============================
 
-        // 先傳送玩家回主世界出生點
-        player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
-
-        // 傳送後再清除 barrier 並重新生成 chunk
+        // 先清除 barrier
         Bukkit.getScheduler().runTask(plugin, () -> {
-            World world = Bukkit.getWorlds().get(0);
-            world.regenerateChunk(session.chunkX - 1, session.chunkZ);
-            world.regenerateChunk(session.chunkX + 1, session.chunkZ);
-            world.regenerateChunk(session.chunkX, session.chunkZ - 1);
-            world.regenerateChunk(session.chunkX, session.chunkZ + 1);
-            world.regenerateChunk(session.chunkX, session.chunkZ);
+            clearBarriers(Bukkit.getWorlds().get(0), session.chunkX, session.chunkZ);
+
+            // 傳送玩家
+            player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+
+            // 傳送後延遲一秒再重新生成 chunk，確保玩家已離開
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                World world = Bukkit.getWorlds().get(0);
+                world.regenerateChunk(session.chunkX - 1, session.chunkZ);
+                world.regenerateChunk(session.chunkX + 1, session.chunkZ);
+                world.regenerateChunk(session.chunkX, session.chunkZ - 1);
+                world.regenerateChunk(session.chunkX, session.chunkZ + 1);
+                world.regenerateChunk(session.chunkX, session.chunkZ);
+            }, 20L); // 延遲 1 秒
         });
     }
 
