@@ -106,14 +106,14 @@ public class DungeonManager implements Listener {
         player.sendMessage("§b你有 " + INVINCIBLE_SECONDS + " 秒的無敵保護！");
 
         Bukkit.getScheduler().runTask(plugin, () -> {
-            placeBarriers(world, chunkX, chunkZ, session);
-
             // 先建立 session 但怪物清單為空
             DungeonSession session = new DungeonSession(
                 player.getUniqueId(), level, new ArrayList<>(),
                 player.getLocation(), chunkX, chunkZ
             );
             activeSessions.put(player.getUniqueId(), session);
+
+            placeBarriers(world, chunkX, chunkZ, session);
 
             player.sendMessage("§a已進入第 " + level + " 關副本！");
             player.sendMessage("§b怪物將在 " + INVINCIBLE_SECONDS + " 秒後生成...");
@@ -248,7 +248,7 @@ public class DungeonManager implements Listener {
 
         // 先清除 barrier 再傳送玩家
         Bukkit.getScheduler().runTask(plugin, () -> {
-            clearBarriers(Bukkit.getWorlds().get(0), session.chunkX, session.chunkZ);
+            clearBarriers(Bukkit.getWorlds().get(0), session);
             player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
         });
     }
