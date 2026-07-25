@@ -10,6 +10,7 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import java.util.*;
+import java.util.Random;
 
 public class DungeonManager implements Listener {
 
@@ -71,10 +72,13 @@ public class DungeonManager implements Listener {
 
         World world = Bukkit.getWorlds().get(0); // 使用主世界
 
-        // 分配 chunk 位置
-        int sessionIndex = activeSessions.size();
-        int chunkX = (DUNGEON_BASE_X >> 4) + sessionIndex * CHUNK_SPACING;
-        int chunkZ = DUNGEON_BASE_Z >> 4;
+        // ==============================
+        // 隨機 chunk 範圍設定（可調整）
+        // ==============================
+        Random random = new Random();
+        int chunkX = (DUNGEON_BASE_X >> 4) + random.nextInt(10000);
+        int chunkZ = random.nextInt(20000) - 10000;
+        // ==============================
 
         // 強制載入 chunk 讓 MC 自然生成地形
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
