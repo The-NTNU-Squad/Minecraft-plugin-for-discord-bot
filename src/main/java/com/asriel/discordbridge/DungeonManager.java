@@ -73,12 +73,15 @@ public class DungeonManager implements Listener {
         World world = Bukkit.getWorlds().get(0); // 使用主世界
 
         // ==============================
-        // 隨機 chunk 範圍設定（可調整）
+        // 副本 Chunk 與視野設定（可調整）
         // ==============================
         Random random = new Random();
         int chunkX = (DUNGEON_BASE_X >> 4) + random.nextInt(10000);
         int chunkZ = random.nextInt(20000) - 10000;
+        int DUNGEON_VIEW_DISTANCE = 1; // 副本內視野距離（1 = 只載入當前 chunk）
         // ==============================
+
+        player.setViewDistance(DUNGEON_VIEW_DISTANCE);
 
         // 強制載入 chunk 讓 MC 自然生成地形
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
@@ -191,29 +194,33 @@ public class DungeonManager implements Listener {
     }
 
     @EventHandler
-    public void onMobDeath(EntityDeathEvent event) {
-        UUID mobId = event.getEntity().getUniqueId();
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        if (activeSessions.containsKey(player.getUniqueId())) {
+            DungeonSession session = activeSessions.get(player.getUniqueId());
+            activeSessions.remove(player.getUniqueId());
 
-        for (Map.Entry<UUID, DungeonSession> entry : activeSessions.entrySet()) {
-            DungeonSession session = entry.getValue();
-            if (session.mobUUIDs.contains(mobId)) {
-                session.mobUUIDs.remove(mobId);
+            player.setViewDistance(10);
+            player.sendMessage("§c你在副本中死亡，副本已結束。");
 
-                Player player = Bukkit.getPlayer(entry.getKey());
-                if (player != null) {
-                    if (session.mobUUIDs.isEmpty()) {
-                        completeDungeon(player, session);
-                    } else {
-                        player.sendMessage("§e剩餘怪物：§f" + session.mobUUIDs.size());
-                    }
-                }
-                break;
-            }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                World world = Bukkit.getWorlds().get(0);
+                world.regenerateChunk(session.chunkX - 1, session.chunkZ);
+                world.regenerateChunk(session.chunkX + 1, session.chunkZ);
+                world.regenerateChunk(session.chunkX, session.chunkZ - 1);
+                world.regenerateChunk(session.chunkX, session.chunkZ + 1);
+                world.regenerateChunk(session.chunkX, session.chunkZ);
+            });
         }
     }
 
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
+        // ==============================
+        // 恢復預設視野距離（可調整）
+        // ==============================
+        player.setViewDistance(10);
+        // ==============================
         Player player = event.getEntity();
         if (activeSessions.containsKey(player.getUniqueId())) {
             DungeonSession session = activeSessions.get(player.getUniqueId());
@@ -225,11 +232,8 @@ public class DungeonManager implements Listener {
 
     private void completeDungeon(Player player, DungeonSession session) {
         activeSessions.remove(player.getUniqueId());
-
-        // 清空 barrier 和 chunk 內怪物
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            clearBarriers(player.getWorld(), session.chunkX, session.chunkZ);
-        });
+        long chunkKey = ((long) session.chunkX << 32) | (session.chunkZ & 0xFFFFFFFFL);
+        usedChunks.remove(chunkKey);
 
         player.sendMessage("§a§l副本通關！");
 
@@ -237,12 +241,25 @@ public class DungeonManager implements Listener {
         // 通關獎勵（之後在這裡新增）
         // ==============================
         if (dungeonMenu != null) {
-                dungeonMenu.unlockNextLevel(player, session.level);
+            dungeonMenu.unlockNextLevel(player, session.level);
         }
         // ==============================
 
-        // 傳送回主世界出生點
+        // 恢復預設視野距離
+        player.setViewDistance(10);
+
+        // 先傳送玩家回主世界出生點
         player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+
+        // 傳送後再清除 barrier 並重新生成 chunk
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            World world = Bukkit.getWorlds().get(0);
+            world.regenerateChunk(session.chunkX - 1, session.chunkZ);
+            world.regenerateChunk(session.chunkX + 1, session.chunkZ);
+            world.regenerateChunk(session.chunkX, session.chunkZ - 1);
+            world.regenerateChunk(session.chunkX, session.chunkZ + 1);
+            world.regenerateChunk(session.chunkX, session.chunkZ);
+        });
     }
 
     private void clearBarriers(World world, int chunkX, int chunkZ) {
