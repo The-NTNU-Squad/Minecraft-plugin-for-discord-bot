@@ -137,21 +137,21 @@ public class DungeonManager implements Listener {
         int maxZ = minZ + 15;
 
         for (int y = BARRIER_MIN_Y; y <= BARRIER_MAX_Y; y++) {
-            // 西牆 (minX)
+            // 西牆 (minX) ← 往內縮一格
             for (int z = minZ; z <= maxZ; z++) {
-                world.getBlockAt(minX - 1, y, z).setType(Material.BARRIER);
+                world.getBlockAt(minX, y, z).setType(Material.BARRIER);
             }
-            // 東牆 (maxX)
+            // 東牆 (maxX) ← 往內縮一格
             for (int z = minZ; z <= maxZ; z++) {
-                world.getBlockAt(maxX + 1, y, z).setType(Material.BARRIER);
+                world.getBlockAt(maxX, y, z).setType(Material.BARRIER);
             }
-            // 北牆 (minZ)
-            for (int x = minX - 1; x <= maxX + 1; x++) {
-                world.getBlockAt(x, y, minZ - 1).setType(Material.BARRIER);
+            // 北牆 (minZ) ← 往內縮一格
+            for (int x = minX; x <= maxX; x++) {
+                world.getBlockAt(x, y, minZ).setType(Material.BARRIER);
             }
-            // 南牆 (maxZ)
-            for (int x = minX - 1; x <= maxX + 1; x++) {
-                world.getBlockAt(x, y, maxZ + 1).setType(Material.BARRIER);
+            // 南牆 (maxZ) ← 往內縮一格
+            for (int x = minX; x <= maxX; x++) {
+                world.getBlockAt(x, y, maxZ).setType(Material.BARRIER);
             }
         }
     }
@@ -263,12 +263,12 @@ public class DungeonManager implements Listener {
 
         for (int y = BARRIER_MIN_Y; y <= BARRIER_MAX_Y; y++) {
             for (int z = minZ; z <= maxZ; z++) {
-                world.getBlockAt(minX - 1, y, z).setType(Material.AIR);
-                world.getBlockAt(maxX + 1, y, z).setType(Material.AIR);
+                world.getBlockAt(minX, y, z).setType(Material.AIR);
+                world.getBlockAt(maxX, y, z).setType(Material.AIR);
             }
-            for (int x = minX - 1; x <= maxX + 1; x++) {
-                world.getBlockAt(x, y, minZ - 1).setType(Material.AIR);
-                world.getBlockAt(x, y, maxZ + 1).setType(Material.AIR);
+            for (int x = minX; x <= maxX; x++) {
+                world.getBlockAt(x, y, minZ).setType(Material.AIR);
+                world.getBlockAt(x, y, maxZ).setType(Material.AIR);
             }
         }
     }
