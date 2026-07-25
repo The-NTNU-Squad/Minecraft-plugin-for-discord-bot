@@ -221,7 +221,7 @@ public class DungeonManager implements Listener {
             DungeonSession session = activeSessions.get(player.getUniqueId());
             activeSessions.remove(player.getUniqueId());
 
-\\
+
             player.sendMessage("§c你在副本中死亡，副本已結束。");
 
             Bukkit.getScheduler().runTask(plugin, () -> {
