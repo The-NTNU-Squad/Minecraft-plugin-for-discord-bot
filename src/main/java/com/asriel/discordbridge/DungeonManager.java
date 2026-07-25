@@ -11,11 +11,13 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import java.util.*;
 import java.util.Random;
+import java.util.Set;
 
 public class DungeonManager implements Listener {
 
     private final JavaPlugin plugin;
     private final Map<UUID, DungeonSession> activeSessions = new HashMap<>();
+    private final Set<Long> usedChunks = new HashSet<>();
     private DungeonMenu dungeonMenu;
 
     public void setDungeonMenu(DungeonMenu dungeonMenu) {
@@ -211,22 +213,6 @@ public class DungeonManager implements Listener {
                 world.regenerateChunk(session.chunkX, session.chunkZ + 1);
                 world.regenerateChunk(session.chunkX, session.chunkZ);
             });
-        }
-    }
-
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        // ==============================
-        // 恢復預設視野距離（可調整）
-        // ==============================
-        player.setViewDistance(10);
-        // ==============================
-        Player player = event.getEntity();
-        if (activeSessions.containsKey(player.getUniqueId())) {
-            DungeonSession session = activeSessions.get(player.getUniqueId());
-            activeSessions.remove(player.getUniqueId());
-            clearBarriers(player.getWorld(), session.chunkX, session.chunkZ);
-            player.sendMessage("§c你在副本中死亡，副本已結束。");
         }
     }
 
