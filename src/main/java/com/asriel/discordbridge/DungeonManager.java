@@ -75,12 +75,13 @@ public class DungeonManager implements Listener {
         World world = Bukkit.getWorlds().get(0); // 使用主世界
 
         // ==============================
-        // 副本 Chunk 與視野設定（可調整）
+        // 副本 Chunk 範圍設定（可調整）
         // ==============================
         Random random = new Random();
-        int chunkX = (DUNGEON_BASE_X >> 4) + random.nextInt(10000);
-        int chunkZ = random.nextInt(20000) - 10000;
-        int DUNGEON_VIEW_DISTANCE = 2; // 副本內視野距離（1 = 只載入當前 chunk）
+        int playerChunkX = player.getLocation().getBlockX() >> 4;
+        int playerChunkZ = player.getLocation().getBlockZ() >> 4;
+        int chunkX = playerChunkX + random.nextInt(33) - 16; // -16 到 +16 個 chunk
+        int chunkZ = playerChunkZ + random.nextInt(33) - 16;
         // ==============================
 
         // 強制載入 chunk 讓 MC 自然生成地形
