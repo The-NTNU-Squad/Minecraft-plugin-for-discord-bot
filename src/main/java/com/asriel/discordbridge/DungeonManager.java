@@ -106,7 +106,7 @@ public class DungeonManager implements Listener {
         player.sendMessage("§b你有 " + INVINCIBLE_SECONDS + " 秒的無敵保護！");
 
         Bukkit.getScheduler().runTask(plugin, () -> {
-            placeBarriers(world, chunkX, chunkZ);
+            placeBarriers(world, chunkX, chunkZ, session);
 
             // 先建立 session 但怪物清單為空
             DungeonSession session = new DungeonSession(
@@ -130,30 +130,28 @@ public class DungeonManager implements Listener {
         });
     }
 
-    private void placeBarriers(World world, int chunkX, int chunkZ) {
+    private void placeBarriers(World world, int chunkX, int chunkZ, DungeonSession session) {
         int minX = chunkX * 16;
         int maxX = minX + 15;
         int minZ = chunkZ * 16;
         int maxZ = minZ + 15;
 
         for (int y = BARRIER_MIN_Y; y <= BARRIER_MAX_Y; y++) {
-            // 西牆 (minX) ← 往內縮一格
             for (int z = minZ; z <= maxZ; z++) {
-                world.getBlockAt(minX, y, z).setType(Material.BARRIER);
+                recordAndPlace(world, minX, y, z, session);
+                recordAndPlace(world, maxX, y, z, session);
             }
-            // 東牆 (maxX) ← 往內縮一格
-            for (int z = minZ; z <= maxZ; z++) {
-                world.getBlockAt(maxX, y, z).setType(Material.BARRIER);
-            }
-            // 北牆 (minZ) ← 往內縮一格
             for (int x = minX; x <= maxX; x++) {
-                world.getBlockAt(x, y, minZ).setType(Material.BARRIER);
-            }
-            // 南牆 (maxZ) ← 往內縮一格
-            for (int x = minX; x <= maxX; x++) {
-                world.getBlockAt(x, y, maxZ).setType(Material.BARRIER);
+                recordAndPlace(world, x, y, minZ, session);
+                recordAndPlace(world, x, y, maxZ, session);
             }
         }
+    }
+
+    private void recordAndPlace(World world, int x, int y, int z, DungeonSession session) {
+        Location loc = new Location(world, x, y, z);
+        session.originalBlocks.put(loc, world.getBlockAt(loc).getType());
+        world.getBlockAt(loc).setType(Material.BARRIER);
     }
 
     private List<UUID> spawnMobs(World world, DungeonConfig config, int level, int centerX, int playerY, int centerZ) {
@@ -227,7 +225,7 @@ public class DungeonManager implements Listener {
 
             // 先清除 barrier 再傳送玩家
             Bukkit.getScheduler().runTask(plugin, () -> {
-                clearBarriers(Bukkit.getWorlds().get(0), session.chunkX, session.chunkZ);
+                clearBarriers(Bukkit.getWorlds().get(0), session);
                 player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
             });
         }
@@ -255,21 +253,9 @@ public class DungeonManager implements Listener {
         });
     }
 
-    private void clearBarriers(World world, int chunkX, int chunkZ) {
-        int minX = chunkX * 16;
-        int maxX = minX + 15;
-        int minZ = chunkZ * 16;
-        int maxZ = minZ + 15;
-
-        for (int y = BARRIER_MIN_Y; y <= BARRIER_MAX_Y; y++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                world.getBlockAt(minX, y, z).setType(Material.AIR);
-                world.getBlockAt(maxX, y, z).setType(Material.AIR);
-            }
-            for (int x = minX; x <= maxX; x++) {
-                world.getBlockAt(x, y, minZ).setType(Material.AIR);
-                world.getBlockAt(x, y, maxZ).setType(Material.AIR);
-            }
+    private void clearBarriers(World world, DungeonSession session) {
+        for (Map.Entry<Location, Material> entry : session.originalBlocks.entrySet()) {
+            world.getBlockAt(entry.getKey()).setType(entry.getValue());
         }
     }
 
@@ -300,7 +286,8 @@ public class DungeonManager implements Listener {
         Location origin;
         int chunkX;
         int chunkZ;
-
+        Map<Location, Material> originalBlocks = new HashMap<>();
+        
         DungeonSession(UUID playerUUID, int level, List<UUID> mobUUIDs, Location origin, int chunkX, int chunkZ) {
             this.playerUUID = playerUUID;
             this.level = level;
