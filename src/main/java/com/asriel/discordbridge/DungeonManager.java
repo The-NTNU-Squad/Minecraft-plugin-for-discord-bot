@@ -225,13 +225,10 @@ public class DungeonManager implements Listener {
 
             player.sendMessage("§c你在副本中死亡，副本已結束。");
 
+            // 先清除 barrier 再傳送玩家
             Bukkit.getScheduler().runTask(plugin, () -> {
-                World world = Bukkit.getWorlds().get(0);
-                world.regenerateChunk(session.chunkX - 1, session.chunkZ);
-                world.regenerateChunk(session.chunkX + 1, session.chunkZ);
-                world.regenerateChunk(session.chunkX, session.chunkZ - 1);
-                world.regenerateChunk(session.chunkX, session.chunkZ + 1);
-                world.regenerateChunk(session.chunkX, session.chunkZ);
+                clearBarriers(Bukkit.getWorlds().get(0), session.chunkX, session.chunkZ);
+                player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
             });
         }
     }
@@ -251,22 +248,10 @@ public class DungeonManager implements Listener {
         }
         // ==============================
 
-        // 先清除 barrier
+        // 先清除 barrier 再傳送玩家
         Bukkit.getScheduler().runTask(plugin, () -> {
             clearBarriers(Bukkit.getWorlds().get(0), session.chunkX, session.chunkZ);
-
-            // 傳送玩家
             player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
-
-            // 傳送後延遲一秒再重新生成 chunk，確保玩家已離開
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                World world = Bukkit.getWorlds().get(0);
-                world.regenerateChunk(session.chunkX - 1, session.chunkZ);
-                world.regenerateChunk(session.chunkX + 1, session.chunkZ);
-                world.regenerateChunk(session.chunkX, session.chunkZ - 1);
-                world.regenerateChunk(session.chunkX, session.chunkZ + 1);
-                world.regenerateChunk(session.chunkX, session.chunkZ);
-            }, 20L); // 延遲 1 秒
         });
     }
 
