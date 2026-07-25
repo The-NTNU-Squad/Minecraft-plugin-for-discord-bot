@@ -83,8 +83,6 @@ public class DungeonManager implements Listener {
         int DUNGEON_VIEW_DISTANCE = 2; // 副本內視野距離（1 = 只載入當前 chunk）
         // ==============================
 
-        player.setViewDistance(DUNGEON_VIEW_DISTANCE);
-
         // 強制載入 chunk 讓 MC 自然生成地形
         Chunk chunk = world.getChunkAt(chunkX, chunkZ);
         world.loadChunk(chunk);
@@ -169,8 +167,6 @@ public class DungeonManager implements Listener {
             // ==============================
 
             // 找到地表高度生成怪物
-            int surfaceY = world.getHighestBlockYAt(centerX + (int) offsetX, centerZ + (int) offsetZ);
-            // 找到地表高度生成怪物
             Location mobLoc = new Location(world, centerX + offsetX, playerY, centerZ + offsetZ);
             LivingEntity mob = (LivingEntity) world.spawnEntity(mobLoc, config.entityType);
 
@@ -196,13 +192,36 @@ public class DungeonManager implements Listener {
     }
 
     @EventHandler
+    public void onMobDeath(EntityDeathEvent event) {
+        UUID mobId = event.getEntity().getUniqueId();
+
+        for (Map.Entry<UUID, DungeonSession> entry : activeSessions.entrySet()) {
+            DungeonSession session = entry.getValue();
+            if (session.mobUUIDs.contains(mobId)) {
+                session.mobUUIDs.remove(mobId);
+                plugin.getLogger().info("副本怪物死亡，剩餘: " + session.mobUUIDs.size());
+
+                Player player = Bukkit.getPlayer(entry.getKey());
+                if (player != null) {
+                    if (session.mobUUIDs.isEmpty()) {
+                        completeDungeon(player, session);
+                    } else {
+                        player.sendMessage("§e剩餘怪物：§f" + session.mobUUIDs.size());
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         if (activeSessions.containsKey(player.getUniqueId())) {
             DungeonSession session = activeSessions.get(player.getUniqueId());
             activeSessions.remove(player.getUniqueId());
 
-            player.setViewDistance(10);
+\\
             player.sendMessage("§c你在副本中死亡，副本已結束。");
 
             Bukkit.getScheduler().runTask(plugin, () -> {
@@ -230,9 +249,6 @@ public class DungeonManager implements Listener {
             dungeonMenu.unlockNextLevel(player, session.level);
         }
         // ==============================
-
-        // 恢復預設視野距離
-        player.setViewDistance(10);
 
         // 先傳送玩家回主世界出生點
         player.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
