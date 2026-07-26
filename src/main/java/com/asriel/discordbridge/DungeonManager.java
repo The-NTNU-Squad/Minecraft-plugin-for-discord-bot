@@ -17,11 +17,6 @@ public class DungeonManager implements Listener {
     private final JavaPlugin plugin;
     private final Map<UUID, DungeonSession> activeSessions = new HashMap<>();
     private final Set<Long> usedChunks = new HashSet<>();
-    private DungeonMenu dungeonMenu;
-
-    public void setDungeonMenu(DungeonMenu dungeonMenu) {
-        this.dungeonMenu = dungeonMenu;
-    }
 
     // ==============================
     // 副本等級設定（數值調整區）
@@ -41,7 +36,7 @@ public class DungeonManager implements Listener {
         DUNGEON_CONFIGS.put(10, new DungeonConfig(EntityType.IRON_GOLEM,      1,  6.0, 5.0));
     }
     // ==============================
-    
+
     // ==============================
     // 屏障設定（可調整）
     // ==============================
@@ -102,6 +97,8 @@ public class DungeonManager implements Listener {
         ));
         player.sendMessage("§b你有 " + INVINCIBLE_SECONDS + " 秒的無敵保護！");
 
+        EventBus.getInstance().publish(new DungeonStartEvent(player, level));
+
         Bukkit.getScheduler().runTask(plugin, () -> {
             // 先建立 session 但怪物清單為空
             DungeonSession session = new DungeonSession(
@@ -112,7 +109,6 @@ public class DungeonManager implements Listener {
 
             placeBarriers(world, chunkX, chunkZ, session);
 
-            player.sendMessage("§a已進入第 " + level + " 關副本！");
             player.sendMessage("§b怪物將在 " + INVINCIBLE_SECONDS + " 秒後生成...");
 
             // 等無敵結束後生成怪物，並用玩家當時的 Y 座標
@@ -235,17 +231,11 @@ public class DungeonManager implements Listener {
         long chunkKey = ((long) session.chunkX << 32) | (session.chunkZ & 0xFFFFFFFFL);
         usedChunks.remove(chunkKey);
 
-        player.sendMessage("§a§l副本通關！");
+        long clearTimeMs = System.currentTimeMillis() - session.startTime;
 
-        // ==============================
-        // 通關獎勵（之後在這裡新增）
-        // ==============================
-        if (dungeonMenu != null) {
-            dungeonMenu.unlockNextLevel(player, session.level);
-        }
-        // ==============================
+        // 發送事件，不再直接呼叫其他系統
+        EventBus.getInstance().publish(new DungeonCompleteEvent(player, session.level, clearTimeMs));
 
-        // 先清除 barrier 再傳送玩家
         Bukkit.getScheduler().runTask(plugin, () -> {
             clearBarriers(Bukkit.getWorlds().get(0), session);
             player.teleport(session.origin);
@@ -290,6 +280,7 @@ public class DungeonManager implements Listener {
         Location origin;
         int chunkX;
         int chunkZ;
+        long startTime = System.currentTimeMillis();
         Map<String, Material> originalBlocks = new HashMap<>();
         
         DungeonSession(UUID playerUUID, int level, List<UUID> mobUUIDs, Location origin, int chunkX, int chunkZ) {

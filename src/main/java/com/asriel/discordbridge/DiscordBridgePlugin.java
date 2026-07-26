@@ -57,7 +57,16 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         dungeonManager = new DungeonManager(this);
         dungeonMenu = new DungeonMenu(this, dungeonManager);
         compassManager = new CompassManager(this, dungeonMenu);
-        dungeonManager.setDungeonMenu(dungeonMenu); // 串接
+        // 副本通關時解鎖下一關
+        EventBus.getInstance().subscribe(DungeonCompleteEvent.class, event -> {
+            dungeonMenu.unlockNextLevel(event.getPlayer(), event.getLevel());
+            event.getPlayer().sendMessage("§a§l副本通關！");
+        });
+
+        // 副本開始時通知
+        EventBus.getInstance().subscribe(DungeonStartEvent.class, event -> {
+            event.getPlayer().sendMessage("§a已進入第 " + event.getLevel() + " 關副本！");
+        });
     }
 
     public DungeonManager getDungeonManager() {
