@@ -11,6 +11,9 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import java.util.*;
 import java.util.Random;
 import java.util.Set;
+import com.asriel.discordbridge.events.EventBus;
+import com.asriel.discordbridge.events.DungeonStartEvent;
+import com.asriel.discordbridge.events.DungeonCompleteEvent;
 
 public class DungeonManager implements Listener {
 

@@ -36,6 +36,9 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
+import com.asriel.discordbridge.events.EventBus;
+import com.asriel.discordbridge.events.DungeonStartEvent;
+import com.asriel.discordbridge.events.DungeonCompleteEvent;
 
 public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private HttpServer server;
