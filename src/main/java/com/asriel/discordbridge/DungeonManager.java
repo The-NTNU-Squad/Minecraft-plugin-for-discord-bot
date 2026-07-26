@@ -29,22 +29,19 @@ public class DungeonManager implements Listener {
     private static final Map<Integer, DungeonConfig> DUNGEON_CONFIGS = new LinkedHashMap<>();
     static {
         // 格式：等級, new DungeonConfig(怪物種類, 怪物數量, 怪物血量倍率, 怪物攻擊倍率)
-        DUNGEON_CONFIGS.put(1, new DungeonConfig(EntityType.ZOMBIE,    5,  1.0, 1.0));
+        DUNGEON_CONFIGS.put(1, new DungeonConfig(EntityType.HUSK,    5,  1.0, 1.0));
         DUNGEON_CONFIGS.put(2, new DungeonConfig(EntityType.SKELETON,  6,  1.2, 1.2));
         DUNGEON_CONFIGS.put(3, new DungeonConfig(EntityType.SPIDER,    8,  1.5, 1.3));
         DUNGEON_CONFIGS.put(4, new DungeonConfig(EntityType.CREEPER,   5,  2.0, 1.5));
         DUNGEON_CONFIGS.put(5, new DungeonConfig(EntityType.WITCH,     4,  2.5, 2.0));
+        DUNGEON_CONFIGS.put(6, new DungeonConfig(EntityType.VINDICATOR,   5,  3.0, 2.5));
+        DUNGEON_CONFIGS.put(7, new DungeonConfig(EntityType.PILLAGER,     6,  3.5, 2.8));
+        DUNGEON_CONFIGS.put(8, new DungeonConfig(EntityType.EVOKER,       3,  4.0, 3.0));
+        DUNGEON_CONFIGS.put(9, new DungeonConfig(EntityType.WITCH,       2,  5.0, 4.0));
+        DUNGEON_CONFIGS.put(10, new DungeonConfig(EntityType.IRON_GOLEM,      1,  6.0, 5.0));
     }
     // ==============================
-
-    // ==============================
-    // Chunk 分配設定（可調整）
-    // ==============================
-    private static final int DUNGEON_BASE_X = 100000; // 副本起始 X 座標
-    private static final int DUNGEON_BASE_Z = 0;      // 副本起始 Z 座標
-    private static final int CHUNK_SPACING  = 2;      // 每個副本之間的 chunk 間距
-    // ==============================
-
+    
     // ==============================
     // 屏障設定（可調整）
     // ==============================

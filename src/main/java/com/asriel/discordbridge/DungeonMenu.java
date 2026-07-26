@@ -97,16 +97,16 @@ public class DungeonMenu implements Listener {
         // 副本入口對應（之後逐一連接）
         // ==============================
         switch (dungeonLevel) {
-            case 1 -> dungeonManager.startDungeon(player, 1); // Dungeon 1 → 第 1 關
-            case 2 -> player.sendMessage("§c此副本尚未開放。");
-            case 3 -> player.sendMessage("§c此副本尚未開放。");
-            case 4 -> player.sendMessage("§c此副本尚未開放。");
-            case 5 -> player.sendMessage("§c此副本尚未開放。");
-            case 6 -> player.sendMessage("§c此副本尚未開放。");
-            case 7 -> player.sendMessage("§c此副本尚未開放。");
-            case 8 -> player.sendMessage("§c此副本尚未開放。");
-            case 9 -> player.sendMessage("§c此副本尚未開放。");
-            case 10 -> player.sendMessage("§c此副本尚未開放。");
+            case 1 -> dungeonManager.startDungeon(player, 1);
+            case 2 -> dungeonManager.startDungeon(player, 2);
+            case 3 -> dungeonManager.startDungeon(player, 3);
+            case 4 -> dungeonManager.startDungeon(player, 4);
+            case 5 -> dungeonManager.startDungeon(player, 5);
+            case 6 -> dungeonManager.startDungeon(player, 6);
+            case 7 -> dungeonManager.startDungeon(player, 7);
+            case 8 -> dungeonManager.startDungeon(player, 8);
+            case 9 -> dungeonManager.startDungeon(player, 9);
+            case 10 -> dungeonManager.startDungeon(player, 10);
         }
         // ==============================
     }
