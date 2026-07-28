@@ -19,24 +19,45 @@ public class DungeonManager implements Listener {
 
     private final JavaPlugin plugin;
     private final Map<UUID, DungeonSession> activeSessions = new HashMap<>();
-    private final Set<Long> usedChunks = new HashSet<>();
 
     // ==============================
     // 副本等級設定（數值調整區）
     // ==============================
     private static final Map<Integer, DungeonConfig> DUNGEON_CONFIGS = new LinkedHashMap<>();
     static {
-        // 格式：等級, new DungeonConfig(怪物種類, 怪物數量, 怪物血量倍率, 怪物攻擊倍率)
-        DUNGEON_CONFIGS.put(1, new DungeonConfig(EntityType.HUSK,    5,  1.0, 1.0));
-        DUNGEON_CONFIGS.put(2, new DungeonConfig(EntityType.SKELETON,  6,  1.2, 1.2));
-        DUNGEON_CONFIGS.put(3, new DungeonConfig(EntityType.SPIDER,    8,  1.5, 1.3));
-        DUNGEON_CONFIGS.put(4, new DungeonConfig(EntityType.CREEPER,   5,  2.0, 1.5));
-        DUNGEON_CONFIGS.put(5, new DungeonConfig(EntityType.WITCH,     4,  2.5, 2.0));
-        DUNGEON_CONFIGS.put(6, new DungeonConfig(EntityType.VINDICATOR,   5,  3.0, 2.5));
-        DUNGEON_CONFIGS.put(7, new DungeonConfig(EntityType.PILLAGER,     6,  3.5, 2.8));
-        DUNGEON_CONFIGS.put(8, new DungeonConfig(EntityType.EVOKER,       3,  4.0, 3.0));
-        DUNGEON_CONFIGS.put(9, new DungeonConfig(EntityType.WITCH,       2,  5.0, 4.0));
-        DUNGEON_CONFIGS.put(10, new DungeonConfig(EntityType.IRON_GOLEM,      1,  6.0, 5.0));
+        // 格式：等級, new DungeonConfig(血量倍率, 攻擊倍率, 波間隔秒數, 第1波, 第2波, 第3波...)
+        DUNGEON_CONFIGS.put(1, new DungeonConfig(1.0, 1.0, 10,
+            new WaveConfig(new MobSpawn(EntityType.HUSK, 5)),
+            new WaveConfig(new MobSpawn(EntityType.HUSK, 4), new MobSpawn(EntityType.SKELETON, 3)),
+            new WaveConfig(new MobSpawn(EntityType.SKELETON, 6))
+        ));
+        DUNGEON_CONFIGS.put(2, new DungeonConfig(1.2, 1.2, 30,
+            new WaveConfig(new MobSpawn(EntityType.SKELETON, 6))
+        ));
+        DUNGEON_CONFIGS.put(3, new DungeonConfig(1.5, 1.3, 25,
+            new WaveConfig(new MobSpawn(EntityType.SPIDER, 8))
+        ));
+        DUNGEON_CONFIGS.put(4, new DungeonConfig(2.0, 1.5, 25,
+            new WaveConfig(new MobSpawn(EntityType.CREEPER, 5))
+        ));
+        DUNGEON_CONFIGS.put(5, new DungeonConfig(2.5, 2.0, 25,
+            new WaveConfig(new MobSpawn(EntityType.WITCH, 4))
+        ));
+        DUNGEON_CONFIGS.put(6, new DungeonConfig(3.0, 2.5, 20,
+            new WaveConfig(new MobSpawn(EntityType.VINDICATOR, 5))
+        ));
+        DUNGEON_CONFIGS.put(7, new DungeonConfig(3.5, 2.8, 20,
+            new WaveConfig(new MobSpawn(EntityType.PILLAGER, 6))
+        ));
+        DUNGEON_CONFIGS.put(8, new DungeonConfig(4.0, 3.0, 20,
+            new WaveConfig(new MobSpawn(EntityType.EVOKER, 3))
+        ));
+        DUNGEON_CONFIGS.put(9, new DungeonConfig(5.0, 4.0, 15,
+            new WaveConfig(new MobSpawn(EntityType.WITCH, 2))
+        ));
+        DUNGEON_CONFIGS.put(10, new DungeonConfig(6.0, 5.0, 15,
+            new WaveConfig(new MobSpawn(EntityType.IRON_GOLEM, 1))
+        ));
     }
     // ==============================
 
@@ -103,10 +124,9 @@ public class DungeonManager implements Listener {
         EventBus.getInstance().publish(new DungeonStartEvent(player, level));
 
         Bukkit.getScheduler().runTask(plugin, () -> {
-            // 先建立 session 但怪物清單為空
             DungeonSession session = new DungeonSession(
                 player.getUniqueId(), level, new ArrayList<>(),
-                originalLocation, chunkX, chunkZ
+                originalLocation, chunkX, chunkZ, config.waves.size()
             );
             activeSessions.put(player.getUniqueId(), session);
 
@@ -114,15 +134,12 @@ public class DungeonManager implements Listener {
 
             player.sendMessage("§b怪物將在 " + INVINCIBLE_SECONDS + " 秒後生成...");
 
-            // 等無敵結束後生成怪物，並用玩家當時的 Y 座標
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                if (!activeSessions.containsKey(player.getUniqueId())) return; // 玩家已離開副本
+                if (!activeSessions.containsKey(player.getUniqueId())) return;
 
                 int playerY = player.getLocation().getBlockY();
-                List<UUID> mobUUIDs = spawnMobs(world, config, level, blockX, playerY, blockZ);
-                session.mobUUIDs.addAll(mobUUIDs);
-                player.sendMessage("§e剩餘怪物：§f" + mobUUIDs.size());
-            }, INVINCIBLE_SECONDS * 20L); // 等無敵秒數結束
+                startWaves(player, session, world, config, level, blockX, playerY, blockZ);
+            }, INVINCIBLE_SECONDS * 20L);
         });
     }
 
@@ -152,44 +169,74 @@ public class DungeonManager implements Listener {
         world.getBlockAt(x, y, z).setType(Material.BARRIER);
     }
 
-    private List<UUID> spawnMobs(World world, DungeonConfig config, int level, int centerX, int playerY, int centerZ) {
+    private List<UUID> spawnMobs(World world, WaveConfig wave, DungeonConfig config, int level,
+                                int centerX, int playerY, int centerZ) {
         List<UUID> mobUUIDs = new ArrayList<>();
-        for (int i = 0; i < config.mobCount; i++) {
 
-            // ==============================
-            // 怪物生成位置偏移（可調整範圍）
-            // ==============================
-            double offsetX = (Math.random() - 0.5) * 10;
-            double offsetZ = (Math.random() - 0.5) * 10;
-            // ==============================
+        for (MobSpawn mobSpawn : wave.mobs) {
+            for (int i = 0; i < mobSpawn.count; i++) {
 
-            // 找到地表高度生成怪物
-            int mobX = centerX + (int) offsetX;
-            int mobZ = centerZ + (int) offsetZ;
-            int surfaceY = world.getHighestBlockYAt(mobX, mobZ);
-            Location mobLoc = new Location(world, mobX, surfaceY + 1, mobZ);
-            LivingEntity mob = (LivingEntity) world.spawnEntity(mobLoc, config.entityType);
+                double offsetX = (Math.random() - 0.5) * 10;
+                double offsetZ = (Math.random() - 0.5) * 10;
 
-            // ==============================
-            // 套用血量和攻擊倍率
-            // ==============================
-            double maxHp = mob.getMaxHealth() * config.healthMultiplier;
-            mob.setMaxHealth(maxHp);
-            mob.setHealth(maxHp);
-            var attackAttr = mob.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_DAMAGE);
-            if (attackAttr != null) {
-                attackAttr.setBaseValue(attackAttr.getBaseValue() * config.attackMultiplier);
+                int mobX = centerX + (int) offsetX;
+                int mobZ = centerZ + (int) offsetZ;
+                int surfaceY = world.getHighestBlockYAt(mobX, mobZ);
+                Location mobLoc = new Location(world, mobX, surfaceY + 1, mobZ);
+                LivingEntity mob = (LivingEntity) world.spawnEntity(mobLoc, mobSpawn.entityType);
+
+                double maxHp = mob.getMaxHealth() * config.healthMultiplier;
+                mob.setMaxHealth(maxHp);
+                mob.setHealth(maxHp);
+                var attackAttr = mob.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_DAMAGE);
+                if (attackAttr != null) {
+                    attackAttr.setBaseValue(attackAttr.getBaseValue() * config.attackMultiplier);
+                }
+
+                mob.setCustomName("§c[Lv." + level + "] " + mob.getType().name());
+                mob.setCustomNameVisible(true);
+                mob.setGlowing(true);
+                mobUUIDs.add(mob.getUniqueId());
             }
-            // ==============================
-
-            mob.setCustomName("§c[Lv." + level + "] " + mob.getType().name());
-            plugin.getLogger().info("生成怪物: " + config.entityType + " 在 " + mobLoc);
-            mob.setCustomNameVisible(true);
-            mob.setGlowing(true);
-            mobUUIDs.add(mob.getUniqueId());
         }
         return mobUUIDs;
     }
+
+    private void startWaves(Player player, DungeonSession session, World world, DungeonConfig config,
+                            int level, int centerX, int centerY, int centerZ) {
+
+        spawnWave(player, session, world, config, level, centerX, centerY, centerZ);
+
+        if (session.maxWaves <= 1) return;
+
+        long intervalTicks = config.waveIntervalSeconds * 20L;
+
+        session.waveTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            if (!activeSessions.containsKey(player.getUniqueId())) {
+                if (session.waveTask != null) session.waveTask.cancel();
+                return;
+            }
+
+            spawnWave(player, session, world, config, level, centerX, centerY, centerZ);
+
+            if (session.currentWave >= session.maxWaves) {
+                session.waveTask.cancel();
+            }
+        }, intervalTicks, intervalTicks);
+    }
+
+    private void spawnWave(Player player, DungeonSession session, World world, DungeonConfig config,
+                            int level, int centerX, int centerY, int centerZ) {
+
+        WaveConfig wave = config.waves.get(session.currentWave); // currentWave 目前是「下一波的 index」（從 0 開始）
+        session.currentWave++;
+
+        List<UUID> newMobs = spawnMobs(world, wave, config, level, centerX, centerY, centerZ);
+        session.mobUUIDs.addAll(newMobs);
+
+        player.sendMessage("§c§l▶ 第 " + session.currentWave + " / " + session.maxWaves + " 波怪物出現！");
+        player.sendMessage("§e目前場上怪物：§f" + session.mobUUIDs.size());
+    }   
 
     @EventHandler
     public void onMobDeath(EntityDeathEvent event) {
@@ -199,12 +246,14 @@ public class DungeonManager implements Listener {
             DungeonSession session = entry.getValue();
             if (session.mobUUIDs.contains(mobId)) {
                 session.mobUUIDs.remove(mobId);
-                plugin.getLogger().info("副本怪物死亡，剩餘: " + session.mobUUIDs.size());
 
                 Player player = Bukkit.getPlayer(entry.getKey());
                 if (player != null) {
-                    if (session.mobUUIDs.isEmpty()) {
+                    boolean allWavesSpawned = session.currentWave >= session.maxWaves;
+                    if (session.mobUUIDs.isEmpty() && allWavesSpawned) {
                         completeDungeon(player, session);
+                    } else if (session.mobUUIDs.isEmpty()) {
+                        player.sendMessage("§e目前怪物已清空，等待下一波...");
                     } else {
                         player.sendMessage("§e剩餘怪物：§f" + session.mobUUIDs.size());
                     }
@@ -221,10 +270,12 @@ public class DungeonManager implements Listener {
             DungeonSession session = activeSessions.get(player.getUniqueId());
             activeSessions.remove(player.getUniqueId());
 
+            if (session.waveTask != null) {
+                session.waveTask.cancel();
+            }
 
             player.sendMessage("§c你在副本中死亡，副本已結束。");
 
-            // 先清除 barrier 再傳送玩家
             Bukkit.getScheduler().runTask(plugin, () -> {
                 clearBarriers(Bukkit.getWorlds().get(0), session);
                 player.teleport(session.origin);
@@ -235,11 +286,12 @@ public class DungeonManager implements Listener {
     private void completeDungeon(Player player, DungeonSession session) {
         activeSessions.remove(player.getUniqueId());
         long chunkKey = ((long) session.chunkX << 32) | (session.chunkZ & 0xFFFFFFFFL);
-        usedChunks.remove(chunkKey);
+
+        if (session.waveTask != null) {
+            session.waveTask.cancel();
+        }
 
         long clearTimeMs = System.currentTimeMillis() - session.startTime;
-
-        // 發送事件，不再直接呼叫其他系統
         EventBus.getInstance().publish(new DungeonCompleteEvent(player, session.level, clearTimeMs));
 
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -263,18 +315,39 @@ public class DungeonManager implements Listener {
         return activeSessions.containsKey(player.getUniqueId());
     }
 
+    
+    // 單一種怪物的生成設定
+    static class MobSpawn {
+        EntityType entityType;
+        int count;
+
+        MobSpawn(EntityType entityType, int count) {
+            this.entityType = entityType;
+            this.count = count;
+        }
+    }
+
+    // 一波裡面可以有多種怪物組合
+    static class WaveConfig {
+        List<MobSpawn> mobs;
+
+        WaveConfig(MobSpawn... mobs) {
+            this.mobs = Arrays.asList(mobs);
+        }
+    }
+
     // 副本設定資料類別
     static class DungeonConfig {
-        EntityType entityType;
-        int mobCount;
         double healthMultiplier;
         double attackMultiplier;
+        int waveIntervalSeconds;
+        List<WaveConfig> waves;   // 波數 = waves.size()
 
-        DungeonConfig(EntityType entityType, int mobCount, double healthMultiplier, double attackMultiplier) {
-            this.entityType = entityType;
-            this.mobCount = mobCount;
+        DungeonConfig(double healthMultiplier, double attackMultiplier, int waveIntervalSeconds, WaveConfig... waves) {
             this.healthMultiplier = healthMultiplier;
             this.attackMultiplier = attackMultiplier;
+            this.waveIntervalSeconds = waveIntervalSeconds;
+            this.waves = Arrays.asList(waves);
         }
     }
 
@@ -288,14 +361,20 @@ public class DungeonManager implements Listener {
         int chunkZ;
         long startTime = System.currentTimeMillis();
         Map<String, Material> originalBlocks = new HashMap<>();
-        
-        DungeonSession(UUID playerUUID, int level, List<UUID> mobUUIDs, Location origin, int chunkX, int chunkZ) {
+
+        int currentWave = 0;              // 目前已生成到第幾波
+        final int maxWaves;               // 總波數
+        org.bukkit.scheduler.BukkitTask waveTask;  // 波數計時器，方便中途取消
+
+        DungeonSession(UUID playerUUID, int level, List<UUID> mobUUIDs, Location origin,
+                    int chunkX, int chunkZ, int maxWaves) {
             this.playerUUID = playerUUID;
             this.level = level;
             this.mobUUIDs = new ArrayList<>(mobUUIDs);
             this.origin = origin;
             this.chunkX = chunkX;
             this.chunkZ = chunkZ;
+            this.maxWaves = maxWaves;
         }
     }
 }
