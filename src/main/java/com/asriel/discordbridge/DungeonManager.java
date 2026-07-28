@@ -14,6 +14,8 @@ import java.util.Set;
 import com.asriel.discordbridge.events.EventBus;
 import com.asriel.discordbridge.events.DungeonStartEvent;
 import com.asriel.discordbridge.events.DungeonCompleteEvent;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.ItemStack;
 
 public class DungeonManager implements Listener {
 
@@ -26,9 +28,12 @@ public class DungeonManager implements Listener {
     private static final Map<Integer, DungeonConfig> DUNGEON_CONFIGS = new LinkedHashMap<>();
     static {
         // 格式：等級, new DungeonConfig(血量倍率, 攻擊倍率, 波間隔秒數, 第1波, 第2波, 第3波...)
-        DUNGEON_CONFIGS.put(1, new DungeonConfig(1.0, 1.0, 10,
+        DUNGEON_CONFIGS.put(1, new DungeonConfig(1.0, 1.0, 20,
             new WaveConfig(new MobSpawn(EntityType.HUSK, 5)),
-            new WaveConfig(new MobSpawn(EntityType.HUSK, 4), new MobSpawn(EntityType.SKELETON, 3)),
+            new WaveConfig(
+                    new MobSpawn(EntityType.HUSK, 4),
+                    new MobSpawn(EntityType.SKELETON, 3, Material.IRON_HELMET, null, null, null, Material.BOW)
+                ),
             new WaveConfig(new MobSpawn(EntityType.SKELETON, 6))
         ));
         DUNGEON_CONFIGS.put(2, new DungeonConfig(1.2, 1.2, 30,
@@ -195,6 +200,38 @@ public class DungeonManager implements Listener {
 
                 mob.setCustomName("§c[Lv." + level + "] " + mob.getType().name());
                 mob.setCustomNameVisible(true);
+
+                LivingEntity mob = (LivingEntity) world.spawnEntity(mobLoc, mobSpawn.entityType);
+
+                double maxHp = mob.getMaxHealth() * config.healthMultiplier;
+                mob.setMaxHealth(maxHp);
+                mob.setHealth(maxHp);
+                var attackAttr = mob.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_DAMAGE);
+                if (attackAttr != null) {
+                    attackAttr.setBaseValue(attackAttr.getBaseValue() * config.attackMultiplier);
+                }
+
+                // ==============================
+                // 套用裝備
+                // ==============================
+                EntityEquipment equipment = mob.getEquipment();
+                if (equipment != null) {
+                    if (mobSpawn.helmet != null) equipment.setHelmet(new ItemStack(mobSpawn.helmet));
+                    if (mobSpawn.chestplate != null) equipment.setChestplate(new ItemStack(mobSpawn.chestplate));
+                    if (mobSpawn.leggings != null) equipment.setLeggings(new ItemStack(mobSpawn.leggings));
+                    if (mobSpawn.boots != null) equipment.setBoots(new ItemStack(mobSpawn.boots));
+                    if (mobSpawn.mainHand != null) equipment.setItemInMainHand(new ItemStack(mobSpawn.mainHand));
+
+                    // 防止裝備掉落（可選，不想要這行就刪掉）
+                    equipment.setHelmetDropChance(0f);
+                    equipment.setChestplateDropChance(0f);
+                    equipment.setLeggingsDropChance(0f);
+                    equipment.setBootsDropChance(0f);
+                    equipment.setItemInMainHandDropChance(0f);
+                }
+                // ==============================
+
+                mob.setCustomName("§c[Lv." + level + "] " + mob.getType().name());          
                 mob.setGlowing(true);
                 mobUUIDs.add(mob.getUniqueId());
             }
@@ -320,10 +357,27 @@ public class DungeonManager implements Listener {
     static class MobSpawn {
         EntityType entityType;
         int count;
+        Material helmet;      // 頭盔，不需要就傳 null
+        Material chestplate;  // 胸甲，不需要就傳 null
+        Material leggings;    // 護腿，不需要就傳 null
+        Material boots;       // 靴子，不需要就傳 null
+        Material mainHand;    // 主手武器，不需要就傳 null
 
+        // 只給數量，沒有裝備（原本的用法照樣能用，不會壞掉）
         MobSpawn(EntityType entityType, int count) {
+            this(entityType, count, null, null, null, null, null);
+        }
+
+        // 完整裝備版本
+        MobSpawn(EntityType entityType, int count, Material helmet, Material chestplate,
+                Material leggings, Material boots, Material mainHand) {
             this.entityType = entityType;
             this.count = count;
+            this.helmet = helmet;
+            this.chestplate = chestplate;
+            this.leggings = leggings;
+            this.boots = boots;
+            this.mainHand = mainHand;
         }
     }
 
