@@ -198,18 +198,6 @@ public class DungeonManager implements Listener {
                     attackAttr.setBaseValue(attackAttr.getBaseValue() * config.attackMultiplier);
                 }
 
-                mob.setCustomName("§c[Lv." + level + "] " + mob.getType().name());
-                mob.setCustomNameVisible(true);
-
-                LivingEntity mob = (LivingEntity) world.spawnEntity(mobLoc, mobSpawn.entityType);
-
-                double maxHp = mob.getMaxHealth() * config.healthMultiplier;
-                mob.setMaxHealth(maxHp);
-                mob.setHealth(maxHp);
-                var attackAttr = mob.getAttribute(org.bukkit.attribute.Attribute.GENERIC_ATTACK_DAMAGE);
-                if (attackAttr != null) {
-                    attackAttr.setBaseValue(attackAttr.getBaseValue() * config.attackMultiplier);
-                }
 
                 // ==============================
                 // 套用裝備
@@ -322,7 +310,6 @@ public class DungeonManager implements Listener {
 
     private void completeDungeon(Player player, DungeonSession session) {
         activeSessions.remove(player.getUniqueId());
-        long chunkKey = ((long) session.chunkX << 32) | (session.chunkZ & 0xFFFFFFFFL);
 
         if (session.waveTask != null) {
             session.waveTask.cancel();
