@@ -164,7 +164,10 @@ public class DungeonManager implements Listener {
             // ==============================
 
             // 找到地表高度生成怪物
-            Location mobLoc = new Location(world, centerX + offsetX, playerY, centerZ + offsetZ);
+            int mobX = centerX + (int) offsetX;
+            int mobZ = centerZ + (int) offsetZ;
+            int surfaceY = world.getHighestBlockYAt(mobX, mobZ);
+            Location mobLoc = new Location(world, mobX, surfaceY + 1, mobZ);
             LivingEntity mob = (LivingEntity) world.spawnEntity(mobLoc, config.entityType);
 
             // ==============================
