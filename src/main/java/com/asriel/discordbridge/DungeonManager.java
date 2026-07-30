@@ -30,38 +30,54 @@ public class DungeonManager implements Listener {
         // 格式：等級, new DungeonConfig(血量倍率, 攻擊倍率, 波間隔秒數, 第1波, 第2波, 第3波...)
         DUNGEON_CONFIGS.put(1, new DungeonConfig(1.0, 1.0, 20,
             new WaveConfig(new MobSpawn(EntityType.HUSK, 5)),
+            new WaveConfig(new MobSpawn(EntityType.SKELETON, 5, Material.IRON_HELMET, null, null, null, Material.BOW))
+        ));
+        DUNGEON_CONFIGS.put(2, new DungeonConfig(1, 1, 20,
+            new WaveConfig(new MobSpawn(EntityType.HUSK, 5)),
             new WaveConfig(
-                    new MobSpawn(EntityType.HUSK, 4),
-                    new MobSpawn(EntityType.SKELETON, 3, Material.IRON_HELMET, null, null, null, Material.BOW)
-                ),
-            new WaveConfig(new MobSpawn(EntityType.SKELETON, 6))
+                new MobSpawn(EntityType.HUSK, 4),
+                new MobSpawn(EntityType.SKELETON, 3, Material.IRON_HELMET, null, null, null, Material.BOW)
+            ),
+            new WaveConfig(
+                new MobSpawn(EntityType.HUSK, 4),
+                new MobSpawn(EntityType.SKELETON, 3, Material.IRON_HELMET, null, null, null, Material.BOW),
+                new MobSpawn(EntityType.SPIDER, 4)
+            )
         ));
-        DUNGEON_CONFIGS.put(2, new DungeonConfig(1.2, 1.2, 30,
-            new WaveConfig(new MobSpawn(EntityType.SKELETON, 6))
+        DUNGEON_CONFIGS.put(3, new DungeonConfig(1, 1, 20,
+            new WaveConfig(
+                new MobSpawn(EntityType.DROWNED, 3, Material.IRON_HELMET, Material.IRON_CHESTPLATE,
+                             Material.IRON_LEGGINGS, Material.IRON_BOOTS, Material.STONE_SWORD),
+                new MobSpawn(EntityType.WITCH, 3)
+            ),
+            new WaveConfig(
+                new MobSpawn(EntityType.GUARDIAN, 4),
+            ),
+            new WaveConfig(
+                new MobSpawn(EntityType.ELDER_GUARDIAN, 1),
+            )
+
         ));
-        DUNGEON_CONFIGS.put(3, new DungeonConfig(1.5, 1.3, 25,
-            new WaveConfig(new MobSpawn(EntityType.SPIDER, 8))
+        DUNGEON_CONFIGS.put(4, new DungeonConfig(1, 1, 30,
+            new WaveConfig(
+                new MobSpawn(EntityType.PILLAGER, 5),
+                new MobSpawn(EntityType.Vindicator, 3)
+            ),
+            new WaveConfig(
+                new MobSpawn(EntityType.Vindicator, 5),
+                new MobSpawn(EntityType.EVOKER, 3)
+            ),
+            new WaveConfig(
+                new MobSpawn(EntityType.RAVAGER, 2),
+                new MobSpawn(EntityType.EVOKER, 3)
+            ),
+            new WaveConfig(
+                new MobSpawn(EntityType.RAVAGER, 4),
+            )
         ));
-        DUNGEON_CONFIGS.put(4, new DungeonConfig(2.0, 1.5, 25,
-            new WaveConfig(new MobSpawn(EntityType.CREEPER, 5))
-        ));
-        DUNGEON_CONFIGS.put(5, new DungeonConfig(2.5, 2.0, 25,
-            new WaveConfig(new MobSpawn(EntityType.WITCH, 4))
-        ));
-        DUNGEON_CONFIGS.put(6, new DungeonConfig(3.0, 2.5, 20,
-            new WaveConfig(new MobSpawn(EntityType.VINDICATOR, 5))
-        ));
-        DUNGEON_CONFIGS.put(7, new DungeonConfig(3.5, 2.8, 20,
-            new WaveConfig(new MobSpawn(EntityType.PILLAGER, 6))
-        ));
-        DUNGEON_CONFIGS.put(8, new DungeonConfig(4.0, 3.0, 20,
-            new WaveConfig(new MobSpawn(EntityType.EVOKER, 3))
-        ));
-        DUNGEON_CONFIGS.put(9, new DungeonConfig(5.0, 4.0, 15,
-            new WaveConfig(new MobSpawn(EntityType.WITCH, 2))
-        ));
-        DUNGEON_CONFIGS.put(10, new DungeonConfig(6.0, 5.0, 15,
-            new WaveConfig(new MobSpawn(EntityType.IRON_GOLEM, 1))
+        DUNGEON_CONFIGS.put(5, new DungeonConfig(1, 1, 60,
+            new WaveConfig(new MobSpawn(EntityType.WITHER, 1)),
+            new WaveConfig(new MobSpawn(EntityType.WITHER, 1))
         ));
     }
     // ==============================
