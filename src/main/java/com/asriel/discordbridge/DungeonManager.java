@@ -246,38 +246,43 @@ public class DungeonManager implements Listener {
     private void startWaves(Player player, DungeonSession session, World world, DungeonConfig config,
                             int level, int centerX, int centerY, int centerZ) {
 
-        spawnWave(player, session, world, config, level, centerX, centerY, centerZ);
+        // 把生怪需要的上下文存起來，之後 onMobDeath 提早觸發時才拿得到
+        session.world = world;
+        session.config = config;
+        session.centerX = centerX;
+        session.centerY = centerY;
+        session.centerZ = centerZ;
 
-        if (session.maxWaves <= 1) return;
+        spawnWave(player, session); // 第一波立即生成
 
-        long intervalTicks = config.waveIntervalSeconds * 20L;
-
-        session.waveTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (!activeSessions.containsKey(player.getUniqueId())) {
-                if (session.waveTask != null) session.waveTask.cancel();
-                return;
-            }
-
-            spawnWave(player, session, world, config, level, centerX, centerY, centerZ);
-
-            if (session.currentWave >= session.maxWaves) {
-                session.waveTask.cancel();
-            }
-        }, intervalTicks, intervalTicks);
+        scheduleWave(player, session); // 排程下一波的計時器（若還有剩餘波數）
     }
 
-    private void spawnWave(Player player, DungeonSession session, World world, DungeonConfig config,
-                            int level, int centerX, int centerY, int centerZ) {
+    // 排定「下一波」的計時器；如果所有波數都生完了就不排
+    private void scheduleWave(Player player, DungeonSession session) {
+        if (session.currentWave >= session.maxWaves) return; // 已經是最後一波，不用再排
 
-        WaveConfig wave = config.waves.get(session.currentWave); // currentWave 目前是「下一波的 index」（從 0 開始）
+        long intervalTicks = session.config.waveIntervalSeconds * 20L;
+
+        session.waveTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!activeSessions.containsKey(player.getUniqueId())) return;
+
+            spawnWave(player, session);
+            scheduleWave(player, session); // 生完後再排下一次（如果還有剩）
+        }, intervalTicks);
+    }
+
+    private void spawnWave(Player player, DungeonSession session) {
+        WaveConfig wave = session.config.waves.get(session.currentWave);
         session.currentWave++;
 
-        List<UUID> newMobs = spawnMobs(world, wave, config, level, centerX, centerY, centerZ);
+        List<UUID> newMobs = spawnMobs(session.world, wave, session.config, session.level,
+                                        session.centerX, session.centerY, session.centerZ);
         session.mobUUIDs.addAll(newMobs);
 
         player.sendMessage("§c§l▶ 第 " + session.currentWave + " / " + session.maxWaves + " 波怪物出現！");
         player.sendMessage("§e目前場上怪物：§f" + session.mobUUIDs.size());
-    }   
+    }  
 
     @EventHandler
     public void onMobDeath(EntityDeathEvent event) {
@@ -291,10 +296,18 @@ public class DungeonManager implements Listener {
                 Player player = Bukkit.getPlayer(entry.getKey());
                 if (player != null) {
                     boolean allWavesSpawned = session.currentWave >= session.maxWaves;
+
                     if (session.mobUUIDs.isEmpty() && allWavesSpawned) {
+                        // 最後一波也清空了，過關
                         completeDungeon(player, session);
                     } else if (session.mobUUIDs.isEmpty()) {
-                        player.sendMessage("§e目前怪物已清空，等待下一波...");
+                        // 場上清空但還有波數沒生，提早觸發下一波
+                        if (session.waveTask != null) {
+                            session.waveTask.cancel();
+                        }
+                        player.sendMessage("§a怪物已清空，提前召喚下一波！");
+                        spawnWave(player, session);
+                        scheduleWave(player, session);
                     } else {
                         player.sendMessage("§e剩餘怪物：§f" + session.mobUUIDs.size());
                     }
@@ -422,6 +435,12 @@ public class DungeonManager implements Listener {
         int currentWave = 0;              // 目前已生成到第幾波
         final int maxWaves;               // 總波數
         org.bukkit.scheduler.BukkitTask waveTask;  // 波數計時器，方便中途取消
+
+        World world;
+        DungeonConfig config;
+        int centerX;
+        int centerY;
+        int centerZ;
 
         DungeonSession(UUID playerUUID, int level, List<UUID> mobUUIDs, Location origin,
                     int chunkX, int chunkZ, int maxWaves) {
