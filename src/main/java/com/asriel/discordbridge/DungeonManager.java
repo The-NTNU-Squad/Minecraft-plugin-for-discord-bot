@@ -51,20 +51,20 @@ public class DungeonManager implements Listener {
                 new MobSpawn(EntityType.WITCH, 3)
             ),
             new WaveConfig(
-                new MobSpawn(EntityType.GUARDIAN, 4),
+                new MobSpawn(EntityType.GUARDIAN, 4)
             ),
             new WaveConfig(
-                new MobSpawn(EntityType.ELDER_GUARDIAN, 1),
+                new MobSpawn(EntityType.ELDER_GUARDIAN, 1)
             )
 
         ));
         DUNGEON_CONFIGS.put(4, new DungeonConfig(1, 1, 30,
             new WaveConfig(
                 new MobSpawn(EntityType.PILLAGER, 5),
-                new MobSpawn(EntityType.Vindicator, 3)
+                new MobSpawn(EntityType.VINDICATOR, 3)
             ),
             new WaveConfig(
-                new MobSpawn(EntityType.Vindicator, 5),
+                new MobSpawn(EntityType.VINDICATOR, 5),
                 new MobSpawn(EntityType.EVOKER, 3)
             ),
             new WaveConfig(
@@ -72,7 +72,7 @@ public class DungeonManager implements Listener {
                 new MobSpawn(EntityType.EVOKER, 3)
             ),
             new WaveConfig(
-                new MobSpawn(EntityType.RAVAGER, 4),
+                new MobSpawn(EntityType.RAVAGER, 4)
             )
         ));
         DUNGEON_CONFIGS.put(5, new DungeonConfig(1, 1, 60,
