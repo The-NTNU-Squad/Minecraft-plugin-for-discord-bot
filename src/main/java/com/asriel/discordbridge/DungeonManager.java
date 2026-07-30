@@ -16,6 +16,7 @@ import com.asriel.discordbridge.events.DungeonStartEvent;
 import com.asriel.discordbridge.events.DungeonCompleteEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.event.entity.EntityTransformEvent;
 
 public class DungeonManager implements Listener {
 
@@ -312,6 +313,35 @@ public class DungeonManager implements Listener {
                         player.sendMessage("§e剩餘怪物：§f" + session.mobUUIDs.size());
                     }
                 }
+                break;
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityTransform(EntityTransformEvent event) {
+        if (!(event.getTransformedEntity() instanceof LivingEntity newMob)) return;
+
+        UUID oldId = event.getEntity().getUniqueId();
+        UUID newId = newMob.getUniqueId();
+
+        for (DungeonSession session : activeSessions.values()) {
+            if (session.mobUUIDs.contains(oldId)) {
+                session.mobUUIDs.remove(oldId);
+                session.mobUUIDs.add(newId);
+
+                // 變形後重新套用副本標記，避免變成沒有標記的野生殭屍
+                newMob.setCustomName("§c[Lv." + session.level + "] " + newMob.getType().name());
+                newMob.setCustomNameVisible(true);
+                newMob.setGlowing(true);
+
+                // 建議：重新套用血量倍率，因為新生成的實體是用預設血量
+                if (session.config != null) {
+                    double maxHp = newMob.getMaxHealth() * session.config.healthMultiplier;
+                    newMob.setMaxHealth(maxHp);
+                    newMob.setHealth(Math.min(newMob.getHealth(), maxHp));
+                }
+
                 break;
             }
         }
