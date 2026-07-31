@@ -17,6 +17,12 @@ import com.asriel.discordbridge.events.DungeonCompleteEvent;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.event.entity.EntityTransformEvent;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 
 public class DungeonManager implements Listener {
 
@@ -81,6 +87,20 @@ public class DungeonManager implements Listener {
             new WaveConfig(new MobSpawn(EntityType.WITHER, 1))
         ));
     }
+
+    // ==============================
+    // 副本金幣獎勵設定（可調整）
+    // ==============================
+    private static final Map<Integer, Integer> COIN_REWARDS = new HashMap<>();
+    static {
+        COIN_REWARDS.put(1, 5);
+        COIN_REWARDS.put(2, 10);
+        COIN_REWARDS.put(3, 20);
+        COIN_REWARDS.put(4, 40);
+        COIN_REWARDS.put(5, 50);
+        // 6~10 關自行補上
+    }
+// ============================== 
     // ==============================
 
     // ==============================
@@ -377,6 +397,12 @@ public class DungeonManager implements Listener {
         long clearTimeMs = System.currentTimeMillis() - session.startTime;
         EventBus.getInstance().publish(new DungeonCompleteEvent(player, session.level, clearTimeMs));
 
+        // 發送金幣獎勵
+        int coinsEarned = COIN_REWARDS.getOrDefault(session.level, 0);
+        if (coinsEarned > 0) {
+            sendDungeonReward(player, session.level, coinsEarned);
+        }
+
         Bukkit.getScheduler().runTask(plugin, () -> {
             clearBarriers(Bukkit.getWorlds().get(0), session);
             player.teleport(session.origin);
@@ -396,6 +422,76 @@ public class DungeonManager implements Listener {
 
     public boolean isInDungeon(Player player) {
         return activeSessions.containsKey(player.getUniqueId());
+    }
+
+    // 非同步發送副本獎勵到後端，避免卡住主執行緒
+    private void sendDungeonReward(Player player, int level, int coinsEarned) {
+        String backendUrl = plugin.getConfig().getString("backend-url");
+        String token = plugin.getConfig().getString("backend-api-token");
+        String mcUsername = player.getName(); // 在主執行緒先抓好，避免非同步中操作 Player 物件
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            int statusCode = -1;
+            String responseBody = "";
+
+            try {
+                JSONObject body = new JSONObject();
+                body.put("mc_username", mcUsername);
+                body.put("dungeon_level", level);
+                body.put("coins_earned", coinsEarned);
+
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(backendUrl + "/api/dungeon/complete"))
+                    .header("Content-Type", "application/json")
+                    .header("X-Plugin-Secret", token)
+                    .POST(HttpRequest.BodyPublishers.ofString(body.toJSONString()))
+                    .build();
+
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                statusCode = response.statusCode();
+                responseBody = response.body();
+
+            } catch (Exception e) {
+                plugin.getLogger().warning("[Dungeon] 發送金幣獎勵失敗: " + e.getMessage());
+            }
+
+            int finalStatusCode = statusCode;
+            String finalResponseBody = responseBody;
+
+            // 切回主執行緒才能操作玩家
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                handleRewardResponse(player, coinsEarned, finalStatusCode, finalResponseBody);
+            });
+        });
+    }
+
+    // 解析後端回應並顯示訊息給玩家
+    private void handleRewardResponse(Player player, int coinsEarned, int statusCode, String responseBody) {
+        if (statusCode == 200) {
+            try {
+                JSONParser parser = new JSONParser();
+                JSONObject json = (JSONObject) parser.parse(responseBody);
+                long totalCoins = (Long) json.get("coin_balance");
+
+                player.sendMessage("§6§l━━━━━━━━━━━━━━━━");
+                player.sendMessage("§a副本完成！獲得 §e" + coinsEarned + " §a金幣");
+                player.sendMessage("§7目前總金幣：§f" + totalCoins);
+                player.sendMessage("§6§l━━━━━━━━━━━━━━━━");
+
+            } catch (Exception e) {
+                player.sendMessage("§a副本完成！獲得 §e" + coinsEarned + " §a金幣");
+                plugin.getLogger().warning("[Dungeon] 解析獎勵回應失敗: " + e.getMessage());
+            }
+
+        } else if (statusCode == 404) {
+            player.sendMessage("§c你的帳號尚未綁定網站，本次副本獎勵未發放。");
+            player.sendMessage("§7請先到網站綁定 Minecraft 帳號。");
+
+        } else {
+            player.sendMessage("§c金幣獎勵發放失敗（請聯繫管理員）。");
+            plugin.getLogger().warning("[Dungeon] 獎勵請求失敗，狀態碼: " + statusCode + "，內容: " + responseBody);
+        }
     }
 
     
