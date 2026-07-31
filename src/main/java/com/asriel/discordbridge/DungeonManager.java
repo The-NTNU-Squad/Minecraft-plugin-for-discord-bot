@@ -430,6 +430,8 @@ public class DungeonManager implements Listener {
         String token = plugin.getConfig().getString("backend-api-token");
         String mcUsername = player.getName(); // 在主執行緒先抓好，避免非同步中操作 Player 物件
 
+        plugin.getLogger().info("token length = " + token.length());
+
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             int statusCode = -1;
             String responseBody = "";
