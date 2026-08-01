@@ -112,12 +112,6 @@ public class DungeonManager implements Listener {
     private static final int INVINCIBLE_SECONDS = 10; // 無敵秒數
     // ==============================
 
-    public DungeonManager(JavaPlugin plugin) {
-        this.plugin = plugin;
-        this.walletCache = walletCache;
-        Bukkit.getPluginManager().registerEvents(this, plugin);
-    }
-
     public void startDungeon(Player player, int level) {
         if (activeSessions.containsKey(player.getUniqueId())) {
             player.sendMessage("§c你已經在副本中了！");
