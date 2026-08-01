@@ -48,6 +48,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private DungeonManager dungeonManager;
     private DungeonMenu dungeonMenu;
     private CompassManager compassManager;
+    private PlayerWalletCache walletCache;
 
     @Override
     public void onEnable() {
@@ -57,8 +58,10 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         backendUrl = getConfig().getString("backend-url", "http://localhost:5000");
         Bukkit.getPluginManager().registerEvents(this, this);
         startHttpServer();
+
+        walletCache = new PlayerWalletCache();
         dungeonManager = new DungeonManager(this);
-        dungeonMenu = new DungeonMenu(this, dungeonManager);
+        dungeonMenu = new DungeonMenu(this, dungeonManager, walletCache);
         compassManager = new CompassManager(this, dungeonMenu);
         // 副本通關時解鎖下一關
         EventBus.getInstance().subscribe(DungeonCompleteEvent.class, event -> {
@@ -70,6 +73,10 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         EventBus.getInstance().subscribe(DungeonStartEvent.class, event -> {
             event.getPlayer().sendMessage("§a已進入第 " + event.getLevel() + " 關副本！");
         });
+    }
+
+    public PlayerWalletCache getWalletCache() {
+        return walletCache;
     }
 
     public DungeonManager getDungeonManager() {
@@ -166,6 +173,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
                     conn.setConnectTimeout(3000);
                     conn.setReadTimeout(3000);
                     conn.setDoOutput(true);
@@ -210,6 +218,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                     URL url = new URL(backendUrl + "/api/user/me/mc?mc_username=" + mcUsername);
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("GET");
+                    conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
                     conn.setConnectTimeout(3000);
                     conn.setReadTimeout(3000);
 
@@ -443,6 +452,10 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+
+        // 新增：登入時刷新金幣/待領物品快取
+        refreshWallet(player);
+
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             try {
                 URL url = new URL(backendUrl + "/api/reward/check?mc_username=" + player.getName());
@@ -470,6 +483,99 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
             } catch (Exception e) {
                 getLogger().warning("檢查獎勵失敗: " + e.getMessage());
             }
+        });
+    }
+
+    public void refreshWallet(Player player) {
+        UUID uuid = player.getUniqueId();
+        String name = player.getName();
+
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            long coinBalance = 0;
+            List<PlayerWalletCache.PendingItem> pending = new ArrayList<>();
+
+            try {
+                URL url = new URL(backendUrl + "/api/user/me/mc?mc_username=" + name);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                if (conn.getResponseCode() == 200) {
+                    String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                    JSONObject json = (JSONObject) new JSONParser().parse(body);
+                    Object balanceObj = json.get("coin_balance");
+                    if (balanceObj != null) coinBalance = (Long) balanceObj;
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                getLogger().warning("刷新金幣失敗: " + e.getMessage());
+            }
+
+            try {
+                URL url = new URL(backendUrl + "/api/delivery/check?mc_username=" + name);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                if (conn.getResponseCode() == 200) {
+                    String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                    JSONObject json = (JSONObject) new JSONParser().parse(body);
+                    JSONArray items = (JSONArray) json.get("items");
+                    for (Object o : items) {
+                        JSONObject item = (JSONObject) o;
+                        int deliveryId = ((Long) item.get("delivery_id")).intValue();
+                        String command = (String) item.get("command");
+                        pending.add(new PlayerWalletCache.PendingItem(deliveryId, command));
+                    }
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                getLogger().warning("刷新待領物品失敗: " + e.getMessage());
+            }
+
+            final long finalCoinBalance = coinBalance;
+            Bukkit.getScheduler().runTask(this, () -> {
+                walletCache.setCoinBalance(uuid, finalCoinBalance);
+                walletCache.setPendingItems(uuid, pending);
+            });
+        });
+    }
+
+    public void claimPendingItem(Player player, int deliveryId, String command) {
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            boolean success = false;
+            try {
+                URL url = new URL(backendUrl + "/api/delivery/claim");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                conn.setDoOutput(true);
+
+                String json = "{\"delivery_ids\":[" + deliveryId + "]}";
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(json.getBytes(StandardCharsets.UTF_8));
+                }
+                success = conn.getResponseCode() == 200;
+                conn.disconnect();
+            } catch (Exception e) {
+                getLogger().warning("領取道具失敗: " + e.getMessage());
+            }
+
+            final boolean finalSuccess = success;
+            Bukkit.getScheduler().runTask(this, () -> {
+                if (finalSuccess) {
+                    walletCache.removePendingItem(player.getUniqueId(), deliveryId);
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command.replace("{player}", player.getName()));
+                    player.sendMessage("§a已領取道具！");
+                } else {
+                    player.sendMessage("§c領取失敗，請稍後再試。");
+                }
+            });
         });
     }
 

@@ -9,6 +9,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.ClickEvent;
 
 import java.util.*;
 
@@ -16,36 +18,42 @@ public class DungeonMenu implements Listener {
 
     private final JavaPlugin plugin;
     private final DungeonManager dungeonManager;
+    private final PlayerWalletCache walletCache;
 
-    // ==============================
-    // 副本名稱設定（可調整）
-    // ==============================
     private static final List<String> DUNGEON_NAMES = Arrays.asList(
-        "§6Dungeon 1 §7- 殭屍之巢",   // 連接到第 1 關
-        "§6Dungeon 2",                 // 尚未開放
-        "§6Dungeon 3",
-        "§6Dungeon 4",
-        "§6Dungeon 5",
-        "§6Dungeon 6",
-        "§6Dungeon 7",
-        "§6Dungeon 8",
-        "§6Dungeon 9",
-        "§6Dungeon 10"
+        "§6Dungeon 1 §7- 殭屍之巢",
+        "§6Dungeon 2", "§6Dungeon 3", "§6Dungeon 4", "§6Dungeon 5",
+        "§6Dungeon 6", "§6Dungeon 7", "§6Dungeon 8", "§6Dungeon 9", "§6Dungeon 10"
     );
-    // ==============================
 
     private static final String MENU_TITLE = "§8副本選單";
 
-    public DungeonMenu(JavaPlugin plugin, DungeonManager dungeonManager) {
+    // 中間區塊（待領物品）可用格子，3欄 x 4排
+    private static final int[] PENDING_ITEM_SLOTS = {
+        21, 22, 23, 30, 31, 32, 39, 40, 41, 48, 49, 50
+    };
+    private static final int WALLET_SLOT = 28;   // 左區塊中心：金幣顯示
+    private static final int WEBSITE_SLOT = 34;  // 右區塊中心：網站連結
+
+    public DungeonMenu(JavaPlugin plugin, DungeonManager dungeonManager, PlayerWalletCache walletCache) {
         this.plugin = plugin;
         this.dungeonManager = dungeonManager;
+        this.walletCache = walletCache;
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public void openMenu(Player player) {
-        int unlockedLevel = getUnlockedLevel(player); // 玩家目前解鎖到第幾關
-        Inventory inv = Bukkit.createInventory(null, 27, MENU_TITLE);
+        int unlockedLevel = getUnlockedLevel(player);
+        Inventory inv = Bukkit.createInventory(null, 54, MENU_TITLE);
 
+        // 背景填滿灰色玻璃板
+        ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta fillerMeta = filler.getItemMeta();
+        fillerMeta.setDisplayName(" ");
+        filler.setItemMeta(fillerMeta);
+        for (int i = 0; i < 54; i++) inv.setItem(i, filler);
+
+        // 上方 2 排：10 個副本關卡（slot 0-9，邏輯跟原本完全一樣）
         for (int i = 0; i < 10; i++) {
             int dungeonLevel = i + 1;
             ItemStack item = new ItemStack(Material.BOOK);
@@ -61,7 +69,7 @@ public class DungeonMenu implements Listener {
                 lore.add("§7通關 Dungeon " + unlockedLevel + " 後解鎖");
             } else {
                 lore.add("§c尚未解鎖");
-                item.setType(Material.GRAY_DYE); // 鎖定的副本用灰色染料表示
+                item.setType(Material.GRAY_DYE);
             }
 
             meta.setLore(lore);
@@ -69,51 +77,102 @@ public class DungeonMenu implements Listener {
             inv.setItem(i, item);
         }
 
+        // 左區塊：金幣顯示（不可點擊，用暫存值）
+        PlayerWalletCache.WalletData wallet = walletCache.get(player.getUniqueId());
+        ItemStack coinItem = new ItemStack(Material.EMERALD);
+        ItemMeta coinMeta = coinItem.getItemMeta();
+        coinMeta.setDisplayName("§a§l我的金幣");
+        coinMeta.setLore(Arrays.asList(
+            "§7目前金幣：§e" + wallet.coinBalance,
+            "§8（登入或副本結束時會更新，非即時）"
+        ));
+        coinItem.setItemMeta(coinMeta);
+        inv.setItem(WALLET_SLOT, coinItem);
+
+        // 中間區塊：待領物品
+        List<PlayerWalletCache.PendingItem> pendingItems = wallet.pendingItems;
+        if (pendingItems.isEmpty()) {
+            ItemStack empty = new ItemStack(Material.BARRIER);
+            ItemMeta emptyMeta = empty.getItemMeta();
+            emptyMeta.setDisplayName("§7目前沒有待領物品");
+            empty.setItemMeta(emptyMeta);
+            inv.setItem(PENDING_ITEM_SLOTS[PENDING_ITEM_SLOTS.length / 2], empty);
+        } else {
+            for (int i = 0; i < pendingItems.size() && i < PENDING_ITEM_SLOTS.length; i++) {
+                PlayerWalletCache.PendingItem pending = pendingItems.get(i);
+                ItemStack item = new ItemStack(Material.CHEST);
+                ItemMeta meta = item.getItemMeta();
+                meta.setDisplayName("§e待領物品 #" + pending.deliveryId);
+                meta.setLore(Arrays.asList("§7點擊領取"));
+                item.setItemMeta(meta);
+                inv.setItem(PENDING_ITEM_SLOTS[i], item);
+            }
+        }
+
+        // 右區塊：網站連結
+        ItemStack linkItem = new ItemStack(Material.MAP);
+        ItemMeta linkMeta = linkItem.getItemMeta();
+        linkMeta.setDisplayName("§b§l前往網站商城");
+        linkMeta.setLore(Arrays.asList("§7點擊在聊天視窗取得連結"));
+        linkItem.setItemMeta(linkMeta);
+        inv.setItem(WEBSITE_SLOT, linkItem);
+
         player.openInventory(inv);
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!event.getView().getTitle().equals(MENU_TITLE)) return;
-        event.setCancelled(true); // 防止拿走物品
+        event.setCancelled(true);
 
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
-
         int slot = event.getSlot();
-        if (slot < 0 || slot >= 10) return;
 
-        int dungeonLevel = slot + 1;
-        int unlockedLevel = getUnlockedLevel(player);
-
-        if (dungeonLevel > unlockedLevel) {
-            player.sendMessage("§c你還沒有解鎖這個副本！");
+        // 副本關卡
+        if (slot < 10) {
+            int dungeonLevel = slot + 1;
+            int unlockedLevel = getUnlockedLevel(player);
+            if (dungeonLevel > unlockedLevel) {
+                player.sendMessage("§c你還沒有解鎖這個副本！");
+                return;
+            }
+            player.closeInventory();
+            dungeonManager.startDungeon(player, dungeonLevel);
             return;
         }
 
-        player.closeInventory();
+        // 金幣顯示：不可點擊
+        if (slot == WALLET_SLOT) return;
 
-        // ==============================
-        // 副本入口對應（之後逐一連接）
-        // ==============================
-        switch (dungeonLevel) {
-            case 1 -> dungeonManager.startDungeon(player, 1);
-            case 2 -> dungeonManager.startDungeon(player, 2);
-            case 3 -> dungeonManager.startDungeon(player, 3);
-            case 4 -> dungeonManager.startDungeon(player, 4);
-            case 5 -> dungeonManager.startDungeon(player, 5);
-            case 6 -> dungeonManager.startDungeon(player, 6);
-            case 7 -> dungeonManager.startDungeon(player, 7);
-            case 8 -> dungeonManager.startDungeon(player, 8);
-            case 9 -> dungeonManager.startDungeon(player, 9);
-            case 10 -> dungeonManager.startDungeon(player, 10);
+        // 網站連結
+        if (slot == WEBSITE_SLOT) {
+            String websiteUrl = plugin.getConfig().getString("website-url", "https://your-website.com");
+            TextComponent msg = new TextComponent("§b點擊前往網站商城：");
+            TextComponent link = new TextComponent("§n" + websiteUrl);
+            link.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, websiteUrl));
+            msg.addExtra(link);
+            player.spigot().sendMessage(msg);
+            return;
         }
-        // ==============================
+
+        // 待領物品
+        for (int i = 0; i < PENDING_ITEM_SLOTS.length; i++) {
+            if (slot == PENDING_ITEM_SLOTS[i]) {
+                PlayerWalletCache.WalletData wallet = walletCache.get(player.getUniqueId());
+                if (i < wallet.pendingItems.size()) {
+                    PlayerWalletCache.PendingItem pending = wallet.pendingItems.get(i);
+                    if (plugin instanceof DiscordBridgePlugin) {
+                        ((DiscordBridgePlugin) plugin).claimPendingItem(player, pending.deliveryId, pending.command);
+                    }
+                    player.closeInventory(); // 清單已變動，關閉避免 slot 對應錯物品
+                }
+                return;
+            }
+        }
     }
 
     private int getUnlockedLevel(Player player) {
-        // 從玩家資料讀取解鎖進度
-        // 預設第一關已解鎖
         return plugin.getConfig().getInt("dungeon-progress." + player.getUniqueId(), 1);
     }
 

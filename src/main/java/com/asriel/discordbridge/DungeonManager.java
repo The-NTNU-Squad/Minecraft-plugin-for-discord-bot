@@ -483,6 +483,8 @@ public class DungeonManager implements Listener {
                 JSONParser parser = new JSONParser();
                 JSONObject json = (JSONObject) parser.parse(responseBody);
                 long totalCoins = (Long) json.get("coin_balance");
+                // 更新快取
+                walletCache.setCoinBalance(player.getUniqueId(), totalCoins);
 
                 player.sendMessage("§6§l━━━━━━━━━━━━━━━━");
                 player.sendMessage("§a副本完成！獲得 §e" + coinsEarned + " §a金幣");
@@ -504,7 +506,14 @@ public class DungeonManager implements Listener {
         }
     }
 
-    
+    private final PlayerWalletCache walletCache;
+
+    public DungeonManager(JavaPlugin plugin, PlayerWalletCache walletCache) {
+        this.plugin = plugin;
+        this.walletCache = walletCache;
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+    } 
+
     // 單一種怪物的生成設定
     static class MobSpawn {
         EntityType entityType;
