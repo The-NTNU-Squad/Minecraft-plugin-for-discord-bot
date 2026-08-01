@@ -153,6 +153,9 @@ public class DungeonManager implements Listener {
         Location spawnLoc = new Location(world, blockX, PLAYER_SPAWN_Y, blockZ);
         player.teleport(spawnLoc);
 
+        // 進入副本先切成冒險模式
+        player.setGameMode(GameMode.ADVENTURE);
+
         // 給予無敵效果
         player.addPotionEffect(new PotionEffect(
             PotionEffectType.DAMAGE_RESISTANCE,
@@ -178,7 +181,9 @@ public class DungeonManager implements Listener {
 
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (!activeSessions.containsKey(player.getUniqueId())) return;
-
+                
+                // 無敵結束，切回生存模式
+                player.setGameMode(GameMode.SURVIVAL);
                 int playerY = player.getLocation().getBlockY();
                 startWaves(player, session, world, config, level, blockX, playerY, blockZ);
             }, INVINCIBLE_SECONDS * 20L);
