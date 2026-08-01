@@ -314,6 +314,10 @@ public class DungeonManager implements Listener {
             if (session.mobUUIDs.contains(mobId)) {
                 session.mobUUIDs.remove(mobId);
 
+                // 新增：清空掉落物與經驗值
+                event.getDrops().clear();
+                event.setDroppedExp(0);
+
                 Player player = Bukkit.getPlayer(entry.getKey());
                 if (player != null) {
                     boolean allWavesSpawned = session.currentWave >= session.maxWaves;
