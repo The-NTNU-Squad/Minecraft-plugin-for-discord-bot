@@ -61,7 +61,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         startHttpServer();
 
         walletCache = new PlayerWalletCache();
-        dungeonManager = new DungeonManager(this);
+        dungeonManager = new DungeonManager(this, walletCache);
         dungeonMenu = new DungeonMenu(this, dungeonManager, walletCache);
         compassManager = new CompassManager(this, dungeonMenu);
         // 副本通關時解鎖下一關
