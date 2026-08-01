@@ -39,6 +39,7 @@ import net.md_5.bungee.api.chat.ClickEvent;
 import com.asriel.discordbridge.events.EventBus;
 import com.asriel.discordbridge.events.DungeonStartEvent;
 import com.asriel.discordbridge.events.DungeonCompleteEvent;
+import java.util.UUID;
 
 public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private HttpServer server;

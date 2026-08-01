@@ -114,6 +114,7 @@ public class DungeonManager implements Listener {
 
     public DungeonManager(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.walletCache = walletCache;
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
