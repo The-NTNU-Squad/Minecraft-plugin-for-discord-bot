@@ -488,6 +488,10 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     }
 
     public void refreshWallet(Player player) {
+        refreshWallet(player, null);
+    }
+
+    public void refreshWallet(Player player, Runnable onComplete) {
         UUID uuid = player.getUniqueId();
         String name = player.getName();
 
@@ -540,6 +544,11 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
             Bukkit.getScheduler().runTask(this, () -> {
                 walletCache.setCoinBalance(uuid, finalCoinBalance);
                 walletCache.setPendingItems(uuid, pending);
+
+                // 新增：資料更新完成後，如果有帶回呼就執行
+                if (onComplete != null) {
+                    onComplete.run();
+                }
             });
         });
     }

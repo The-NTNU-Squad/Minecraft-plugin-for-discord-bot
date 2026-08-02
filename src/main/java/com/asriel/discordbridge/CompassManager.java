@@ -77,7 +77,14 @@ public class CompassManager implements Listener {
         if (!isDungeonCompass(item)) return;
 
         event.setCancelled(true);
-        dungeonMenu.openMenu(event.getPlayer());
+        Player player = event.getPlayer();
+
+        if (plugin instanceof DiscordBridgePlugin) {
+            player.sendMessage("§7讀取中...");
+            ((DiscordBridgePlugin) plugin).refreshWallet(player, () -> dungeonMenu.openMenu(player));
+        } else {
+            dungeonMenu.openMenu(player); // 保險起見，理論上不會走到這裡
+        }
     }
 
     // 防止丟出指南針
