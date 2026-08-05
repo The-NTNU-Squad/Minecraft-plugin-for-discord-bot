@@ -162,6 +162,7 @@ public class DungeonManager implements Listener {
         player.sendMessage("§b你有 " + INVINCIBLE_SECONDS + " 秒的無敵保護！");
 
         EventBus.getInstance().publish(new DungeonStartEvent(player, level));
+        reportDungeonStart(player, level);
 
         Bukkit.getScheduler().runTask(plugin, () -> {
             DungeonSession session = new DungeonSession(
@@ -184,6 +185,32 @@ public class DungeonManager implements Listener {
             }, INVINCIBLE_SECONDS * 20L);
         });
     }
+
+    private void reportDungeonStart(Player player, int level) {
+        String backendUrl = plugin.getConfig().getString("backend-url");
+        String token = plugin.getConfig().getString("backend-api-token");
+        String mcUsername = player.getName();
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("mc_username", mcUsername);
+                body.put("dungeon_level", level);
+
+                HttpClient client = HttpClient.newHttpClient();
+                HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(backendUrl + "/api/dungeon/start"))
+                    .header("Content-Type", "application/json")
+                    .header("X-Plugin-Secret", token)
+                    .POST(HttpRequest.BodyPublishers.ofString(body.toJSONString()))
+                    .build();
+
+                client.send(request, HttpResponse.BodyHandlers.ofString());
+            } catch (Exception e) {
+                plugin.getLogger().warning("[Dungeon] 回報進入副本失敗: " + e.getMessage());
+            }
+        });
+    }    
 
     private void placeBarriers(World world, int chunkX, int chunkZ, DungeonSession session) {
         int minX = chunkX * 16;
@@ -403,9 +430,9 @@ public class DungeonManager implements Listener {
         // 發送金幣獎勵
         int coinsEarned = COIN_REWARDS.getOrDefault(session.level, 0);
         if (coinsEarned > 0) {
-            sendDungeonReward(player, session.level, coinsEarned);
+            sendDungeonReward(player, session.level, coinsEarned, clearTimeMs);
         }
-
+    
         Bukkit.getScheduler().runTask(plugin, () -> {
             clearBarriers(Bukkit.getWorlds().get(0), session);
             player.teleport(session.origin);
@@ -428,7 +455,7 @@ public class DungeonManager implements Listener {
     }
 
     // 非同步發送副本獎勵到後端，避免卡住主執行緒
-    private void sendDungeonReward(Player player, int level, int coinsEarned) {
+    private void sendDungeonReward(Player player, int level, int coinsEarned, long clearTimeMs) {
         String backendUrl = plugin.getConfig().getString("backend-url");
         String token = plugin.getConfig().getString("backend-api-token");
         String mcUsername = player.getName(); // 在主執行緒先抓好，避免非同步中操作 Player 物件
@@ -444,6 +471,7 @@ public class DungeonManager implements Listener {
                 body.put("mc_username", mcUsername);
                 body.put("dungeon_level", level);
                 body.put("coins_earned", coinsEarned);
+                body.put("clear_time_ms", clearTimeMs);
 
                 HttpClient client = HttpClient.newHttpClient();
                 HttpRequest request = HttpRequest.newBuilder()

@@ -19,6 +19,8 @@ public class DungeonMenu implements Listener {
     private final JavaPlugin plugin;
     private final DungeonManager dungeonManager;
     private final PlayerWalletCache walletCache;
+    private final DungeonStatsCache statsCache;
+    private final DungeonStatsMenu statsMenu;
 
     private static final List<String> DUNGEON_NAMES = Arrays.asList(
         "§6Dungeon 1 §7- 殭屍之巢",
@@ -28,17 +30,20 @@ public class DungeonMenu implements Listener {
 
     private static final String MENU_TITLE = "§8副本選單";
 
-    // 中間區塊（待領物品）可用格子，3欄 x 4排
     private static final int[] PENDING_ITEM_SLOTS = {
         21, 22, 23, 30, 31, 32, 39, 40, 41, 48, 49, 50
     };
-    private static final int WALLET_SLOT = 28;   // 左區塊中心：金幣顯示
-    private static final int WEBSITE_SLOT = 34;  // 右區塊中心：網站連結
+    private static final int WALLET_SLOT = 28;
+    private static final int WEBSITE_SLOT = 34;
+    private static final int STATS_SLOT = 13;
 
-    public DungeonMenu(JavaPlugin plugin, DungeonManager dungeonManager, PlayerWalletCache walletCache) {
+    public DungeonMenu(JavaPlugin plugin, DungeonManager dungeonManager, PlayerWalletCache walletCache,
+                        DungeonStatsCache statsCache, DungeonStatsMenu statsMenu) {
         this.plugin = plugin;
         this.dungeonManager = dungeonManager;
         this.walletCache = walletCache;
+        this.statsCache = statsCache;
+        this.statsMenu = statsMenu;
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
@@ -53,7 +58,7 @@ public class DungeonMenu implements Listener {
         filler.setItemMeta(fillerMeta);
         for (int i = 0; i < 54; i++) inv.setItem(i, filler);
 
-        // 上方 2 排：10 個副本關卡（slot 0-9，邏輯跟原本完全一樣）
+        // 上方 2 排：10 個副本關卡
         for (int i = 0; i < 10; i++) {
             int dungeonLevel = i + 1;
             ItemStack item = new ItemStack(Material.BOOK);
@@ -77,7 +82,15 @@ public class DungeonMenu implements Listener {
             inv.setItem(i, item);
         }
 
-        // 左區塊：金幣顯示（不可點擊，用暫存值）
+        // 查看副本紀錄按鈕（放在填色、關卡之後都可以，位置不影響結果）
+        ItemStack statsItem = new ItemStack(Material.WRITTEN_BOOK);
+        ItemMeta statsMeta = statsItem.getItemMeta();
+        statsMeta.setDisplayName("§e§l查看副本紀錄");
+        statsMeta.setLore(Arrays.asList("§7點擊查看遊玩次數與花費時間"));
+        statsItem.setItemMeta(statsMeta);
+        inv.setItem(STATS_SLOT, statsItem);
+
+        // 左區塊：金幣顯示
         PlayerWalletCache.WalletData wallet = walletCache.get(player.getUniqueId());
         ItemStack coinItem = new ItemStack(Material.EMERALD);
         ItemMeta coinMeta = coinItem.getItemMeta();
@@ -142,6 +155,15 @@ public class DungeonMenu implements Listener {
             return;
         }
 
+        // 查看副本紀錄（搬到這裡，slot 跟 player 都已經宣告過了）
+        if (slot == STATS_SLOT) {
+            player.closeInventory();
+            if (plugin instanceof DiscordBridgePlugin) {
+                ((DiscordBridgePlugin) plugin).refreshDungeonStats(player, () -> statsMenu.openMenu(player));
+            }
+            return;
+        }
+
         // 金幣顯示：不可點擊
         if (slot == WALLET_SLOT) return;
 
@@ -165,7 +187,7 @@ public class DungeonMenu implements Listener {
                     if (plugin instanceof DiscordBridgePlugin) {
                         ((DiscordBridgePlugin) plugin).claimPendingItem(player, pending.deliveryId, pending.command);
                     }
-                    player.closeInventory(); // 清單已變動，關閉避免 slot 對應錯物品
+                    player.closeInventory();
                 }
                 return;
             }

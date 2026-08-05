@@ -50,6 +50,8 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private DungeonMenu dungeonMenu;
     private CompassManager compassManager;
     private PlayerWalletCache walletCache;
+    private DungeonStatsCache statsCache;
+    private DungeonStatsMenu statsMenu;
 
     @Override
     public void onEnable() {
@@ -61,9 +63,12 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
         startHttpServer();
 
         walletCache = new PlayerWalletCache();
+        statsCache = new DungeonStatsCache();
+        statsMenu = new DungeonStatsMenu(this, statsCache);   // 先建立
         dungeonManager = new DungeonManager(this, walletCache);
-        dungeonMenu = new DungeonMenu(this, dungeonManager, walletCache);
+        dungeonMenu = new DungeonMenu(this, dungeonManager, walletCache, statsCache, statsMenu);  // 再傳入
         compassManager = new CompassManager(this, dungeonMenu);
+
         // 副本通關時解鎖下一關
         EventBus.getInstance().subscribe(DungeonCompleteEvent.class, event -> {
             dungeonMenu.unlockNextLevel(event.getPlayer(), event.getLevel());
@@ -86,6 +91,10 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
 
     public CompassManager getCompassManager() {
         return compassManager;
+    }
+
+    public DungeonMenu getDungeonMenu() {
+        return dungeonMenu;
     }
 
     @Override
@@ -549,6 +558,45 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                 if (onComplete != null) {
                     onComplete.run();
                 }
+            });
+        });
+    }
+
+    public void refreshDungeonStats(Player player, Runnable onComplete) {
+        UUID uuid = player.getUniqueId();
+        String name = player.getName();
+
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            Map<Integer, DungeonStatsCache.LevelStats> statsMap = new HashMap<>();
+
+            try {
+                URL url = new URL(backendUrl + "/api/dungeon/stats?mc_username=" + name);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                if (conn.getResponseCode() == 200) {
+                    String body = new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                    JSONObject json = (JSONObject) new JSONParser().parse(body);
+                    JSONObject stats = (JSONObject) json.get("stats");
+                    for (Object key : stats.keySet()) {
+                        int level = Integer.parseInt((String) key);
+                        JSONObject levelData = (JSONObject) stats.get(key);
+                        DungeonStatsCache.LevelStats ls = new DungeonStatsCache.LevelStats();
+                        ls.playCount = ((Long) levelData.get("play_count")).intValue();
+                        ls.avgClearTimeMs = (Long) levelData.get("avg_clear_time_ms");
+                        statsMap.put(level, ls);
+                    }
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                getLogger().warning("刷新副本紀錄失敗: " + e.getMessage());
+            }
+
+            Bukkit.getScheduler().runTask(this, () -> {
+                statsCache.setStats(uuid, statsMap);
+                if (onComplete != null) onComplete.run();
             });
         });
     }
