@@ -40,6 +40,8 @@ import com.asriel.discordbridge.events.EventBus;
 import com.asriel.discordbridge.events.DungeonStartEvent;
 import com.asriel.discordbridge.events.DungeonCompleteEvent;
 import java.util.UUID;
+import java.util.Map;
+import java.util.HashMap;
 
 public class DiscordBridgePlugin extends JavaPlugin implements Listener {
     private HttpServer server;
