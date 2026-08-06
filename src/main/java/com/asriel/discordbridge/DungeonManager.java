@@ -207,7 +207,8 @@ public class DungeonManager implements Listener {
 
                 client.send(request, HttpResponse.BodyHandlers.ofString());
             } catch (Exception e) {
-                plugin.getLogger().warning("[Dungeon] 回報進入副本失敗: " + e.getMessage());
+                plugin.getLogger().warning("[Dungeon] 回報進入副本失敗: " + e.getClass().getName() + " - " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }    
@@ -486,7 +487,8 @@ public class DungeonManager implements Listener {
                 responseBody = response.body();
 
             } catch (Exception e) {
-                plugin.getLogger().warning("[Dungeon] 發送金幣獎勵失敗: " + e.getMessage());
+                plugin.getLogger().warning("[Dungeon] 發送金幣獎勵失敗: " + e.getClass().getName() + " - " + e.getMessage());
+                e.printStackTrace();
             }
 
             int finalStatusCode = statusCode;
