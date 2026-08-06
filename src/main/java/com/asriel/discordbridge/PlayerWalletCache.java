@@ -16,6 +16,7 @@ public class PlayerWalletCache {
 
     public static class WalletData {
         public long coinBalance = 0;
+        public int unlockedLevel = 1;
         public List<PendingItem> pendingItems = new ArrayList<>();
     }
 

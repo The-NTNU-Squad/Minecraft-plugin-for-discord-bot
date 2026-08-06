@@ -508,6 +508,7 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
 
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             long coinBalance = 0;
+            int unlockedLevel = 1;
             List<PlayerWalletCache.PendingItem> pending = new ArrayList<>();
 
             try {
@@ -522,6 +523,9 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
                     JSONObject json = (JSONObject) new JSONParser().parse(body);
                     Object balanceObj = json.get("coin_balance");
                     if (balanceObj != null) coinBalance = (Long) balanceObj;
+
+                    Object levelObj = json.get("unlocked_level");  // 新增
+                    if (levelObj != null) unlockedLevel = ((Long) levelObj).intValue();
                 }
                 conn.disconnect();
             } catch (Exception e) {
@@ -552,15 +556,44 @@ public class DiscordBridgePlugin extends JavaPlugin implements Listener {
             }
 
             final long finalCoinBalance = coinBalance;
+            final int finalUnlockedLevel = unlockedLevel;
             Bukkit.getScheduler().runTask(this, () -> {
                 walletCache.setCoinBalance(uuid, finalCoinBalance);
+                walletCache.get(uuid).unlockedLevel = finalUnlockedLevel; 
                 walletCache.setPendingItems(uuid, pending);
 
-                // 新增：資料更新完成後，如果有帶回呼就執行
+                // 資料更新完成後，如果有帶回呼就執行
                 if (onComplete != null) {
                     onComplete.run();
                 }
             });
+        });
+    }
+
+    public void reportUnlock(Player player, int unlockedLevel) {
+        String name = player.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("mc_username", name);
+                body.put("unlocked_level", unlockedLevel);
+
+                URL url = new URL(backendUrl + "/api/dungeon/unlock");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("X-Plugin-Secret", getConfig().getString("backend-api-token", ""));
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+                conn.setDoOutput(true);
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(body.toJSONString().getBytes(StandardCharsets.UTF_8));
+                }
+                conn.getResponseCode();
+                conn.disconnect();
+            } catch (Exception e) {
+                getLogger().warning("[Dungeon] 回報解鎖進度失敗: " + e.getClass().getName() + " - " + e.getMessage());
+            }
         });
     }
 

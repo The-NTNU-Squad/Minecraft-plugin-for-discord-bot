@@ -195,15 +195,18 @@ public class DungeonMenu implements Listener {
     }
 
     private int getUnlockedLevel(Player player) {
-        return plugin.getConfig().getInt("dungeon-progress." + player.getUniqueId(), 1);
+        return walletCache.get(player.getUniqueId()).unlockedLevel;
     }
 
     public void unlockNextLevel(Player player, int completedLevel) {
         int current = getUnlockedLevel(player);
         if (completedLevel >= current) {
-            plugin.getConfig().set("dungeon-progress." + player.getUniqueId(), completedLevel + 1);
-            plugin.saveConfig();
-            player.sendMessage("§a§lDungeon " + (completedLevel + 1) + " 已解鎖！");
+            int newLevel = completedLevel + 1;
+            walletCache.get(player.getUniqueId()).unlockedLevel = newLevel;  // 樂觀更新本地快取
+            if (plugin instanceof DiscordBridgePlugin) {
+                ((DiscordBridgePlugin) plugin).reportUnlock(player, newLevel);  // 非同步回報後端
+            }
+            player.sendMessage("§a§lDungeon " + newLevel + " 已解鎖！");
         }
     }
 }
